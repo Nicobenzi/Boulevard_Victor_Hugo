@@ -70,8 +70,13 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   de référence — ne pas se fier à un texte recopié.
 - Césure des vers longs à l'hémistiche (2 lignes max), gérée par `cesure()`.
 - Voix : `highpass=70` + `afftdn` + `loudnorm I=-14:TP=-1.5` (norme plateformes).
-- Toujours **2 exports** : *avec musique* et *voix seule* — la voix seule sert quand on ajoute
-  un son via l'app TikTok/Reels (meilleure portée).
+- **Un seul export**, avec musique (23/08). La voix seule ne servait qu'au flux « ajouter un
+  son » de TikTok, jamais utilisé — et elle doublait le stockage, qui est le vrai plafond.
+- **Niveaux audio, mesurés le 23/08** : voix à −14,2 LUFS, nappe générée à **−29,6** → 15 LU
+  d'écart, inaudible. La musique est désormais remontée à `MUSIQUE_LUFS = -21` avant mixage,
+  puis le mix entier est renormalisé à −14 LUFS / −1,5 dBTP. Ne pas remplacer ce dernier
+  `loudnorm` par un `alimiter` : celui-ci ne borne que la crête d'échantillon, la crête
+  **réelle** montait à 0,0 dBTP (écrêtage inter-échantillon à l'encodage AAC).
 - **Musique** : 100 % générée, aucun sample, aucun enregistrement → aucun risque de réclamation.
   `pipeline/make_music.py` produit la banque (5 tonalités + un pouls). Aucune fondamentale sous
   ~65 Hz : en dessous, un haut-parleur de téléphone ne restitue rien.

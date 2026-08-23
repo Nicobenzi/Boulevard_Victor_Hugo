@@ -1,7 +1,7 @@
 """
 Boulevard Victor Hugo - usine de rendu.
-Prend les render_jobs 'queued' dans Supabase, produit les videos (musique + voix seule),
-les upload dans le bucket 'videos' et met a jour le job.
+Prend les render_jobs 'queued' dans Supabase, produit la video (voix + musique),
+l'upload dans le bucket 'videos' et met a jour le job.
 Env requis : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
 import os, sys, re, json, subprocess, tempfile, unicodedata, difflib, hashlib, wave
@@ -21,6 +21,9 @@ SB = create_client(_URL, _KEY)
 W, H = 1080, 1920
 FPS = 30
 MAX_JOBS = 3
+# Niveau de la musique sous la voix (elle-meme a -14 LUFS). Plus le chiffre monte,
+# plus la nappe est presente. -21 = elle habille ; -26 = on ne l'entend plus.
+MUSIQUE_LUFS = -21
 
 # ---------------- utilitaires ----------------
 
@@ -381,10 +384,10 @@ def process_job(job, wd):
     if mus:
         src_mus = os.path.join(wd, "src_music")
         open(src_mus, "wb").write(SB.storage.from_(mus[0]["storage_bucket"]).download(mus[0]["storage_path"]))
-        # boucle si trop courte, coupe si trop longue, et normalise au meme niveau que la nappe
+        # boucle si trop courte, coupe si trop longue. Le niveau est fixe plus bas,
+        # au moment du mixage, pour que musique liee et nappe generee suivent la meme regle.
         sh(["ffmpeg","-v","error","-y","-stream_loop","-1","-i",src_mus,
-            "-t",f"{total + 0.5:.2f}","-af","loudnorm=I=-26:TP=-6:LRA=11",
-            "-ar","48000","-ac","2",pad])
+            "-t",f"{total + 0.5:.2f}","-ar","48000","-ac","2",pad])
         print("  musique :", mus[0]["title"])
     else:
         make_drone(pad, total + 0.5)
@@ -504,21 +507,24 @@ def process_job(job, wd):
         inputs = ["-loop","1","-framerate",str(FPS),"-t",f"{total}","-i",in0,
                   "-loop","1","-framerate",str(FPS),"-t",f"{total}","-i",second_in]
 
-    outs = []
-    for variant, with_pad in [("musique", True), ("voix", False)]:
-        out = os.path.join(wd, f"{variant}.mp4")
-        if with_pad:
-            af = (f"[2:a]apad=whole_dur={total}[va];[3:a]atrim=0:{total}[ma];"
-                  f"[va][ma]amix=inputs=2:duration=first:normalize=0,afade=t=out:st={total-2.6:.2f}:d=2.4[a]")
-            ain = ["-i", voice, "-i", pad]
-        else:
-            af = f"[2:a]apad=whole_dur={total}[a]"
-            ain = ["-i", voice]
-        sh(["ffmpeg","-v","error","-y"] + inputs + ain +
-           ["-filter_complex", vf + ";" + af, "-map","[v]","-map","[a]",
-            "-c:v","libx264","-crf","19","-preset","veryfast","-c:a","aac","-b:a","160k",
-            "-movflags","+faststart","-t",f"{total}", out])
-        outs.append((variant, out))
+    # Un seul export, avec musique. La version voix seule ne servait qu'au flux
+    # « ajouter un son » de TikTok, inutilise — et elle doublait le stockage.
+    #
+    # Niveaux (mesures le 23/08) : la nappe generee sort a -29,6 LUFS, la voix a -14,2.
+    # Quinze LU d'ecart : on ne l'entend pas. On la remonte a MUSIQUE_LUFS, ~7 LU sous
+    # la voix, puis on renormalise le MIX a -14 LUFS / -1,5 dBTP.
+    # Le loudnorm final est indispensable : un alimiter ne borne que la crete d'echantillon,
+    # et la crete REELLE atteignait 0,0 dBTP — inter-sample clipping a l'encodage AAC.
+    out = os.path.join(wd, "musique.mp4")
+    af = (f"[2:a]apad=whole_dur={total}[va];"
+          f"[3:a]atrim=0:{total},loudnorm=I={MUSIQUE_LUFS}:TP=-6:LRA=11[ma];"
+          f"[va][ma]amix=inputs=2:duration=first:normalize=0,"
+          f"loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=out:st={total-2.6:.2f}:d=2.4[a]")
+    sh(["ffmpeg","-v","error","-y"] + inputs + ["-i", voice, "-i", pad] +
+       ["-filter_complex", vf + ";" + af, "-map","[v]","-map","[a]",
+        "-c:v","libx264","-crf","19","-preset","veryfast","-c:a","aac","-b:a","160k",
+        "-movflags","+faststart","-t",f"{total}", out])
+    outs = [("musique", out)]
 
     slug = re.sub(r"[^a-z0-9]+","-", unicodedata.normalize("NFD", poem["title"].lower()).encode("ascii","ignore").decode())[:40].strip("-")
     video_asset_id = None
@@ -527,7 +533,7 @@ def process_job(job, wd):
         SB.storage.from_("videos").upload(path, open(out,"rb").read(), {"content-type": "video/mp4"})
         ins = SB.table("assets").insert({
             "poem_id": poem["id"], "kind": "video",
-            "title": f"{poem['title']} — {style} ({'avec musique' if variant=='musique' else 'voix seule'})",
+            "title": f"{poem['title']} — {style}",
             "storage_bucket": "videos", "storage_path": path,
             "mime_type": "video/mp4", "size_bytes": os.path.getsize(out),
             "meta": {"render_job": job["id"], "variant": variant, "style": style},

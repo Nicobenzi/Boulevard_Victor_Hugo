@@ -31,7 +31,7 @@ Le mettre à jour après toute décision structurante.
   Garamond pour titres et vers. Ne pas inventer d'autres couleurs.
 - Sous-titres vidéo = **texte canonique** de `poems.body`, jamais la transcription brute.
   Texte collationné sur Wikisource, apostrophes typographiques `’`.
-- Toute vidéo est exportée en **2 versions** : avec musique et voix seule.
+- **Un seul export**, avec musique (la voix seule ne servait qu’au flux « ajouter un son » de TikTok, inutilisé — et doublait le stockage).
 - Migrations : ne jamais modifier une migration appliquée ; toujours en créer une nouvelle
   dans `supabase/migrations/`.
 - L'avancement d'un poème est **dérivé** des données, pas lu dans `poems.status` (qui dérive).

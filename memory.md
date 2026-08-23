@@ -1,38 +1,109 @@
-# memory.md — état du projet (mise à jour : 2026-08-23)
+# memory.md — mémoire du projet
+Dernière consolidation : 23 août 2026
 
-## Le projet
-Frère de Nicolas = la voix (lectures de poèmes du domaine public). Nicolas = production/tech.
-Nom de la chaîne : **Boulevard Victor Hugo**. Signature vidéo : « chaque semaine, un poème ».
+Lire ce fichier au début de chaque session. Le mettre à jour après toute décision structurante.
 
-## Décisions actées
-- **3 DA** (planche validée) : I. Musée (tableau plein écran + Ken Burns/travelling) — défaut ;
-  II. Galerie (cadre doré sur noir, pour images basse résolution) ; III. Nocturne (typo seule).
-- **Publication v1 = assistée** (fichier + caption à copier, checklist), pas d'API directe :
-  IG exige app review Meta (compte Business), TikTok = draft-only sans audit, YouTube = privé sans audit.
-  v2 possible plus tard : YouTube auto d'abord (le plus simple), puis Meta/TikTok après reviews.
-- **Usine de rendu = GitHub Actions** (gratuit) plutôt que serveur ou Vercel (trop lourd pour ffmpeg/whisper).
-- **Déclenchement = bouton « Générer la vidéo »** sur la fiche poème (pas full-auto à l'upload).
-- Musique : nappe drone ré mineur générée (100 % libre de droits) ; piano composé à la main
-  au cas par cas (pas d'auto-génération, risque qualité). 2 sorties : avec musique + voix seule
-  (la voix seule sert aux sons in-app TikTok/Reels).
-- Sous-titres : texte canonique, césure à l'hémistiche, coupe du titre lu en intro (hook direct sur le vers 1).
-- Voix normalisée loudnorm I=-14 ; audio frère parfois très compressé (26 kbps) → afftdn + à réenregistrer mieux un jour.
+---
 
-## Infra
-- App : https://boulevard-victor-hugo.vercel.app (Vercel team nicobenzis-projects, lié au repo GitHub).
-- Repo : github.com/Nicobenzi/Boulevard_Victor_Hugo (privé). Secrets Actions posés (SUPABASE_URL + SERVICE_ROLE_KEY).
-- Supabase : projet cjnnzmfbqybgcmmvrodx, org perso Free. Site URL auth configurée sur l'app Vercel.
-- Membres : nicolas.benzimra@coprovia.fr (allowlist). **Email du frère : à ajouter (en attente).**
+## 1. Le projet
 
-## En pause / TODO
-- ⚠️ **GitHub Actions bloqué** : facturation du compte GitHub (paiement en échec ou spending limit).
-  Choix de Nicolas : attendre le prochain cycle. Si toujours bloqué → régulariser la carte ou passer le repo en public.
-  En attendant, les rendus sont faits à la main par Claude (mêmes réglages que pipeline/render.py).
-- Ajouter l'email du frère dans allowed_emails.
-- v1.1 : upload YouTube auto (privé→public) ; rappel mail le jour d'une publication.
-- v2 : app reviews Meta/TikTok pour le direct-post.
+**Boulevard Victor Hugo** — poèmes du domaine public, lus à voix haute, montés en vidéo verticale
+(1080×1920) pour Instagram / TikTok / YouTube. Signature de fin : « chaque semaine, un poème ».
 
-## Vidéos déjà produites (à la main, dans la Bibliothèque à uploader)
-- Bacchanale (Heredia, 56 s) : version fond généré + version Poussin (travelling), musique piano+nappe ré mineur.
-- Hymne à la Beauté (Baudelaire, 1 min 47) : DA Galerie avec Moreau (L'Apparition), nappe+piano la mineur.
-  Le Moreau est en 345×500 (basse rés) → si HD trouvée un jour, refaire en Musée plein écran.
+- **Le frère de Nicolas** : la voix (choix des poèmes, enregistrement des lectures).
+- **Nicolas** : production, montage, tech, publication.
+- Projet passion à deux, coût visé = 0 €. Priorité : régularité de publication > perfection technique.
+
+**Droits** : ne monter que des auteurs morts depuis plus de 70 ans (Baudelaire, Heredia, Rimbaud,
+Verlaine, Hugo, Apollinaire…). Prévert, Aragon, Char = encore protégés, à éviter.
+Idem pour les tableaux : domaine public (Wikimedia Commons), et attention aux *enregistrements*
+musicaux modernes d'œuvres classiques, qui restent protégés → d'où la musique composée maison.
+
+---
+
+## 2. Direction artistique (validée)
+
+Palette unique : fond `#0e0c0a`, panel `#161311`, crème `#ece4d4`, or `#c9a45c`.
+Titres et vers en **Cormorant Garamond**. Ne pas introduire d'autres couleurs ni polices.
+
+- **I. Musée** (défaut) — tableau plein écran, Ken Burns lent (zoom 1 → 1,085) ; si le tableau est
+  en format paysage, travelling horizontal lent à la place. Dégradé sombre en bas pour la lisibilité.
+- **II. Galerie** — tableau encadré d'un filet doré sur fond noir, vers sous le cadre.
+  À utiliser quand l'image est en basse résolution (elle reste nette en petit).
+- **III. Nocturne** — typographie seule sur dégradé, sans image. Pour alterner.
+
+**Structure d'une vidéo** : hook direct sur le premier vers (le titre lu est coupé), cartouche
+titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte signature à la fin.
+
+---
+
+## 3. Règles de montage (dures, issues de l'expérience)
+
+- Les sous-titres affichent le **texte canonique** du poème (`poems.body`, un vers par ligne),
+  jamais la transcription brute — le public de poésie repère les écarts.
+  La transcription (faster-whisper, mots horodatés) ne sert qu'à **caler** les vers (alignement difflib).
+- Césure des vers longs à l'hémistiche (2 lignes max).
+- Voix : `highpass=70` + `afftdn` + `loudnorm I=-14:TP=-1.5` (norme plateformes).
+- Toujours **2 exports** : *avec musique* et *voix seule* — la voix seule sert quand on ajoute
+  un son via l'app TikTok/Reels (meilleure portée).
+- Musique : nappe drone générée (numpy) + piano composé à la main, 100 % original → aucun risque
+  de réclamation de droits. Ré mineur pour Bacchanale, la mineur (plus vénéneux) pour l'Hymne.
+- Durées : ~1 min = idéal Reels/TikTok. Au-delà de 1 min 30, prévoir YouTube ou un découpage en 2 parties.
+
+---
+
+## 4. Décisions d'architecture
+
+- **Publication v1 = assistée**, pas d'API directe. Vérifié en août 2026 : Instagram exige un
+  compte Business + app review Meta (2-4 semaines) ; TikTok poste en « moi uniquement » sans audit ;
+  YouTube verrouille en privé les uploads d'un projet non audité.
+  → L'app prépare le fichier + la caption, Nicolas publie en 2 clics.
+  v2 : YouTube auto d'abord (le plus simple : privé → public à la main), puis Meta/TikTok après reviews.
+- **Usine de rendu = GitHub Actions** (gratuit, 2 000 min/mois) — ffmpeg + Whisper sont trop lourds
+  pour Vercel. Alternative écartée : serveur dédié (~5 €/mois).
+- **Déclenchement = bouton « Générer la vidéo »** sur la fiche poème (choix bande son + tableau + DA),
+  pas de rendu automatique à l'upload → évite les rendus inutiles.
+- App volontairement simple : tout en client components + supabase-js direct, pas de couche
+  d'abstraction (voir skill `karpathy`).
+
+---
+
+## 5. Infrastructure
+
+| Élément | Détail |
+|---|---|
+| App | https://boulevard-victor-hugo.vercel.app |
+| Vercel | team `nicobenzis-projects` (Pro), projet `boulevard-victor-hugo`, lié au repo → deploy auto sur `main` |
+| Repo | github.com/Nicobenzi/Boulevard_Victor_Hugo (privé) |
+| Supabase | projet `cjnnzmfbqybgcmmvrodx`, org perso (Free), région eu-west-1 |
+| Secrets Actions | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (posés) |
+
+Base : `profiles`, `allowed_emails`, `poems`, `assets`, `publications`, `render_jobs`.
+Buckets privés : `videos`, `audios`, `images`. Accès = allowlist + RLS via `public.is_member()`.
+Auth = lien magique par email ; Site URL configurée sur l'URL Vercel (sinon le lien renvoie vers localhost).
+
+**Pièges rencontrés** (ne pas refaire) :
+- Vercel refuse Next.js 15.1 (CVE) → rester sur `^15.5.4`.
+- Le dashboard Supabase intercepte les frappes clavier automatisées : configurer l'auth à la main.
+
+---
+
+## 6. État au 23 août 2026
+
+**En pause** — GitHub Actions bloqué : « recent account payments have failed or your spending limit
+needs to be increased ». Choix de Nicolas : attendre le prochain cycle de facturation.
+Si le blocage persiste (cas d'un paiement en échec, il ne se débloque pas seul) : régulariser la carte,
+ou passer le repo en public (Actions gratuites et illimitées ; sans risque, aucun secret n'est dans le code).
+→ En attendant, les rendus se font à la main dans Cowork, avec les mêmes réglages que `pipeline/render.py`.
+
+**À faire**
+- Ajouter l'email du frère dans `allowed_emails` (toujours en attente).
+- Uploader dans la Bibliothèque les 4 vidéos déjà montées.
+- v1.1 : upload YouTube auto ; rappel par mail le jour d'une publication programmée.
+
+**Déjà produit (monté à la main)**
+- *Bacchanale* (Heredia, 56 s) — 2 versions : fond peint généré, puis Poussin
+  (*Bacchanale à la joueuse de luth*) en travelling. Musique piano + nappe, ré mineur.
+- *Hymne à la Beauté* (Baudelaire, 1 min 47) — DA Galerie avec Moreau (*L'Apparition*).
+  L'image dont on dispose est en 345×500 : si une version HD est trouvée, refaire en DA Musée.
+  L'enregistrement de la voix est très compressé (26 kbps) → à réenregistrer un jour.

@@ -112,15 +112,18 @@ Accès = allowlist `allowed_emails` + RLS via `public.is_member()`.
 - **Lot 1 : aucune écriture de schéma.** Retirer des champs de l'écran, refondre la nav, générer
   une caption et calculer l'accueil se font entièrement en lecture sur l'existant.
 
-- **[HARD-STOP] Autoriser un asset sans poème lié.** Le vivier partagé exige de lever la contrainte
-  « poème lié obligatoire » pour les types `image`, `broll` et `musique`. Cette règle avait une
-  raison réelle (`memory.md` § 4 : les assets orphelins provoquaient des « ajoute d'abord une bande
-  son » inexplicables) — la lever demande de vérifier que les écrans qui listent les assets d'un
-  poème filtrent bien sur `poem_id not null`. Migration + revue de la policy RLS.
-  Déjà prévu au § 6 de `memory.md` (« banque d'images partagée »).
+- ~~**[HARD-STOP] Autoriser un asset sans poème lié.**~~ **Corrigé le 23/08 après vérification du
+  schéma : il n'y a jamais eu de hard-stop.** `assets.poem_id` est **nullable**, et les seules
+  contraintes de la table sont la clé primaire, les deux clés étrangères et
+  `assets_kind_check`. L'obligation « poème lié » n'existait que **dans le composant**
+  (`POEM_REQUIRED`). Le vivier partagé ne demande donc **aucune migration** — livré avec la
+  refonte de la page Ressources.
 
-- **[HARD-STOP] Colonne de mots-clés d'ambiance** sur `assets` (tableau de valeurs contraintes au
-  vocabulaire fermé). Migration + contrainte.
+- ~~**[HARD-STOP] Colonne de mots-clés d'ambiance.**~~ **Également levé** : `assets.meta` est un
+  `jsonb` existant, `NOT NULL DEFAULT '{}'`. Les ambiances peuvent y être rangées sans migration.
+  Reste à trancher : `meta` (zéro migration, moins explicite) ou une vraie colonne (plus propre,
+  demande une migration). Le vocabulaire lui-même reste le seul vrai bloquant, et il dépend de
+  Nicolas.
 
 - **[HARD-STOP] Colonne de validation** (`validated_at` ou équivalent) sur `render_jobs` ou
   `assets` — le porteur reste à déterminer à l'implémentation. Migration.

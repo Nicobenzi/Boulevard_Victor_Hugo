@@ -182,6 +182,11 @@ Auth = lien magique ; Site URL sur l'URL Vercel (sinon le lien renvoie vers loca
   Exposition réelle du projet : nulle (aucun `next/image`, aucun CSS tiers) — le motif est la
   continuité de déploiement, pas la sécurité. Migration sans friction : config vide, aucune route
   API, aucun middleware, aucune route dynamique, seul `next/font/google` est utilisé.
+  Résultat : `found 0 vulnerabilities`, build vert en 9,6 s. **Next 16 utilise Turbopack par
+  défaut** au build. Il **réécrit `tsconfig.json`** au passage (`jsx` → `react-jsx`, ajout de
+  `.next/dev/types/**/*.ts` aux `include`) : ces changements sont à committer, sinon chaque build
+  les réapplique et l'arbre reste sale. `next-env.d.ts` est généré → ajouté au `.gitignore`.
+  `package-lock.json` est désormais suivi (il ne l'était pas).
 - Le dashboard Supabase intercepte les frappes clavier automatisées : configurer l'auth à la main.
 - **Le MCP Supabase est en lecture seule.** Toute écriture (insertion, migration) doit passer par
   l'éditeur SQL du dashboard. Prévoir des scripts collables et idempotents.

@@ -36,6 +36,6 @@ npm run dev
 
 ## Structure
 
-- `app/` — pages (calendrier, poèmes, bibliothèque, à publier)
+- `app/` — pages (publications [calendrier + liste], poèmes, bibliothèque)
 - `pipeline/render.py` — le pipeline de rendu vidéo
 - `.github/workflows/render.yml` — le déclencheur (cron 30 min + manuel)

@@ -2,7 +2,11 @@ name: render-videos
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Toutes les 2 h, pas toutes les 30 min : GitHub arrondit chaque job a la minute
+    # pleine, donc une execution a vide de 4 s coute une minute. A 30 min d'intervalle
+    # cela faisait ~1440 min/mois de sondage pour rien, soit la moitie d'un quota Pro.
+    # Rythme de publication : un poeme par semaine. Deux heures d'attente ne changent rien.
+    - cron: "0 */2 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -38,11 +42,15 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fontconfig
           mkdir -p ~/.fonts
+          # Pas de « || true » ici : sans la police, libass retombe en silence sur une
+          # substitution et les vidéos sortent dans une autre fonte que le site.
           wget -q -O ~/.fonts/CormorantGaramond.ttf \
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf" || true
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf"
           wget -q -O ~/.fonts/CormorantGaramond-Italic.ttf \
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond-Italic%5Bwght%5D.ttf" || true
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond-Italic%5Bwght%5D.ttf"
           fc-cache -f
+          fc-list : family | grep -qi cormorant \
+            || { echo "::error::Cormorant Garamond absente après installation"; exit 1; }
 
       - name: Install Python deps
         if: steps.check.outputs.count != '0'

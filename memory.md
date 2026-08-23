@@ -8,7 +8,7 @@ Lire ce fichier au début de chaque session. Le mettre à jour après toute déc
 ## 1. Le projet
 
 **Boulevard Victor Hugo** — poèmes du domaine public, lus à voix haute, montés en vidéo verticale
-(1080×1920) pour Instagram / TikTok / YouTube. Signature de fin : « chaque semaine, un poème ».
+(1080×1920) pour Instagram / TikTok / YouTube. Signature de fin : « chaque jour, un poème ».
 
 - **Le frère de Nicolas** : la voix (choix des poèmes, enregistrement des lectures).
   Il n'a pas encore de compte sur l'app — ne pas concevoir de fonctionnalité qui suppose sa présence.

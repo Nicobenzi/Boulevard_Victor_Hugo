@@ -3,8 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase, PLATFORMS, STATUS_FR } from "@/lib/supabase";
 
 // Rythme visé : un poème par jour, à 18 h, sur les trois plateformes.
-// ⚠ La carte de fin des vidéos dit « chaque semaine, un poème » (render.py, style SigSub).
-// Si le rythme quotidien est confirmé, cette signature est à revoir.
+// La carte de fin des vidéos dit « chaque jour, un poème » — cohérente avec ce rythme.
 const RYTHME_HEURE = "18:00";
 const PLATEFORMES_AUTO = ["instagram", "tiktok", "youtube"];
 

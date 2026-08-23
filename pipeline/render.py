@@ -311,7 +311,7 @@ def build_ass_cinetique(path, poem, verses, starts, onsets_pv, end_last, total):
             ev.append(f"Dialogue: 0,{ts(t0)},{ts(t1)},{style},,0,0,0,,{s}")
 
     ev.append(f"Dialogue: 0,{ts(total-3.6)},{ts(total-0.4)},SigName,,0,0,0,,{{\\fad(600,600)\\pos(540,900)}}Boulevard Victor Hugo")
-    ev.append(f"Dialogue: 0,{ts(total-3.3)},{ts(total-0.4)},SigSub,,0,0,0,,{{\\fad(600,600)\\pos(540,1000)}}chaque semaine, un poème")
+    ev.append(f"Dialogue: 0,{ts(total-3.3)},{ts(total-0.4)},SigSub,,0,0,0,,{{\\fad(600,600)\\pos(540,1000)}}chaque jour, un poème")
     open(path, "w").write(hdr + "\n".join(ev) + "\n")
 
     spans = []
@@ -340,7 +340,7 @@ def build_ass(path, poem, verses, starts, end_last, total, style):
         e = starts[i+1] if i+1 < len(starts) else end_last + 0.3
         ev.append(f"Dialogue: 0,{ts(st)},{ts(e)},Verse,,0,0,0,,{{\\fad(300,300)}}{cesure(v)}")
     ev.append(f"Dialogue: 0,{ts(total-3.6)},{ts(total-0.4)},SigName,,0,0,0,,{{\\fad(600,600)\\pos(540,900)}}Boulevard Victor Hugo")
-    ev.append(f"Dialogue: 0,{ts(total-3.3)},{ts(total-0.4)},SigSub,,0,0,0,,{{\\fad(600,600)\\pos(540,1000)}}chaque semaine, un poème")
+    ev.append(f"Dialogue: 0,{ts(total-3.3)},{ts(total-0.4)},SigSub,,0,0,0,,{{\\fad(600,600)\\pos(540,1000)}}chaque jour, un poème")
     open(path, "w").write(hdr + "\n".join(ev) + "\n")
 
 # ---------------- job ----------------

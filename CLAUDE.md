@@ -20,7 +20,11 @@ Le mettre à jour après toute décision structurante.
   (faster-whisper, alignement difflib sur `poems.body`, ffmpeg). Python 3.11.
   Styles : `cinetique` (à privilégier), `musee`, `galerie`.
   `pipeline/make_music.py` génère la banque de nappes.
-- **Nav** : Publications (bascule calendrier/liste), Poèmes, Bibliothèque, Veille.
+- **Nav** : Accueil (tenue du rythme), Atelier (bascule kanban/calendrier — fusion des anciens
+  Poèmes + Publications), Ressources, Veille. `/poemes`, `/publications`, `/bibliotheque`,
+  `/calendrier` et `/publier` sont des redirections.
+  L'étape d'un poème est dérivée dans `lib/etapes.ts` ; la caption vient de `lib/caption.ts`
+  (gabarit déterministe, jamais de LLM). Spec : `docs/specs/spec-refonte-ux-atelier-2026-08-23.md`.
 
 ## Règles dures
 - **RLS sur toute nouvelle table**, policy via `public.is_member()`. Accès = allowlist `allowed_emails`.

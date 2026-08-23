@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0e0c0a;
+  --panel: #161311;
+  --ink: #ece4d4;
+  --ink-dim: #a89e8c;
+  --gold: #c9a45c;
+  --line: #2a241d;
+}
+body { background: var(--bg); color: var(--ink); }
+.font-serif2 { font-family: var(--font-cormorant), Georgia, serif; }
+input, select, textarea {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; color: var(--ink); width: 100%;
+}
+input:focus, select:focus, textarea:focus { outline: 1px solid var(--gold); }
+.btn { background: var(--gold); color: #0e0c0a; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn2 { border: 1px solid var(--line); color: var(--ink-dim); border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+.btn2:hover { color: var(--ink); border-color: var(--gold); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }

@@ -1,0 +1,53 @@
+name: render-videos
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: render
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Check queued jobs (exit fast if none)
+        id: check
+        run: |
+          CNT=$(curl -s "$SUPABASE_URL/rest/v1/render_jobs?status=eq.queued&select=id" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')
+          echo "count=$CNT" >> "$GITHUB_OUTPUT"
+          echo "$CNT job(s) en attente"
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.count != '0'
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.count != '0'
+        with: { python-version: "3.11" }
+
+      - name: Install ffmpeg + fonts
+        if: steps.check.outputs.count != '0'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fontconfig
+          mkdir -p ~/.fonts
+          wget -q -O ~/.fonts/CormorantGaramond.ttf \
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf" || true
+          wget -q -O ~/.fonts/CormorantGaramond-Italic.ttf \
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond-Italic%5Bwght%5D.ttf" || true
+          fc-cache -f
+
+      - name: Install Python deps
+        if: steps.check.outputs.count != '0'
+        run: pip install -q faster-whisper supabase numpy pillow
+
+      - name: Render
+        if: steps.check.outputs.count != '0'
+        run: python pipeline/render.py

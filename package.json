@@ -1,0 +1,18 @@
+{
+  "name": "boulevard-victor-hugo",
+  "private": true,
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
+  "dependencies": {
+    "next": "^15.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@supabase/supabase-js": "^2.48.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/react": "^19",
+    "@types/node": "^22",
+    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4"
+  }
+}

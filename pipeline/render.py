@@ -9,7 +9,15 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageDraw
 from supabase import create_client
 
-SB = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+_URL = os.environ.get("SUPABASE_URL", "")
+_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+if not _URL or not _KEY:
+    # Une variable definie mais VIDE ne leve pas de KeyError : le client echouait
+    # plus loin sur un message obscur. On echoue ici, avec le nom du secret manquant.
+    manquants = [n for n, v in (("SUPABASE_URL", _URL), ("SUPABASE_SERVICE_ROLE_KEY", _KEY)) if not v]
+    raise SystemExit(f"Secret(s) manquant(s) : {', '.join(manquants)}. "
+                     "A definir dans Settings > Secrets and variables > Actions.")
+SB = create_client(_URL, _KEY)
 W, H = 1080, 1920
 FPS = 30
 MAX_JOBS = 3

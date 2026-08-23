@@ -120,7 +120,7 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
 | Vercel | team `nicobenzis-projects` (Pro), projet `boulevard-victor-hugo`, deploy auto sur `main` |
 | Repo | github.com/Nicobenzi/Boulevard_Victor_Hugo — **privé** (cf. § 6) |
 | Supabase | projet `cjnnzmfbqybgcmmvrodx`, org perso (Free), région eu-west-1 |
-| Secrets Actions | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (posés) |
+| Secrets Actions | `SUPABASE_URL` ✅ · `SUPABASE_SERVICE_ROLE_KEY` ❌ **à poser** (cf. § 6) |
 | Rendu | `.github/workflows/render.yml` — cron **2 h** + manuel → `pipeline/render.py` (Python 3.11) |
 
 Tables : `profiles`, `allowed_emails`, `poems`, `assets`, `publications`, `render_jobs`,
@@ -164,6 +164,25 @@ Attendre débloquera donc, puis le problème reviendra le mois suivant.
   faisaient ~1 440 min/mois pour rien ; à 2 h, ~360 min/mois.
 
 Tant que c'est bloqué, les rendus se font à la main dans Cowork, mêmes réglages que `render.py`.
+
+### ⚠ Le secret le plus important n'existe pas
+
+Constaté le 23/08 à la **première exécution réelle** du workflow : la page Secrets ne contient
+que `SUPABASE_URL`. **`SUPABASE_SERVICE_ROLE_KEY` n'a jamais été créé**, malgré la note
+« posés » qui figurait ici. Indétectable jusque-là : le blocage de quota refusait les jobs
+avant démarrage, donc `render.py` n'a jamais tourné une seule fois.
+
+Le pipeline n'aurait donc pu fonctionner sur **aucun** commit, dans **aucun** style.
+
+Deux défauts corrigés dans la foulée :
+- L'étape « Check queued jobs » faisait `len()` sur la réponse JSON. Avec un secret manquant,
+  PostgREST renvoie un **objet d'erreur** dont `len()` compte les clés → le workflow croyait
+  avoir 3 jobs et enchaînait. Il vérifie maintenant que la réponse est bien une liste.
+- `os.environ["X"]` ne lève pas d'erreur pour une variable **vide** : `render.py` échouait plus
+  loin sur « supabase_key is required ». Le contrôle est désormais en tête de fichier.
+
+→ À faire : Supabase → Project Settings → API Keys → `service_role`, puis GitHub → Settings →
+Secrets and variables → Actions → New repository secret, nom exact `SUPABASE_SERVICE_ROLE_KEY`.
 
 ### En attente d'une action de Nicolas
 

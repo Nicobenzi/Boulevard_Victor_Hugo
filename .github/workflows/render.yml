@@ -24,9 +24,21 @@ jobs:
       - name: Check queued jobs (exit fast if none)
         id: check
         run: |
-          CNT=$(curl -s "$SUPABASE_URL/rest/v1/render_jobs?status=eq.queued&select=id" \
+          # Sans ce garde-fou, un secret manquant fait renvoyer un objet d'erreur JSON par
+          # PostgREST, dont len() compte les CLÉS : le workflow croit alors avoir des jobs
+          # et enchaîne jusqu'à planter dans render.py. C'est arrivé le 23/08.
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Secret manquant : SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY doivent être définis dans Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          RESP=$(curl -s "$SUPABASE_URL/rest/v1/render_jobs?status=eq.queued&select=id" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+          CNT=$(printf '%s' "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else -1)" 2>/dev/null || echo -1)
+          if [ "$CNT" = "-1" ]; then
+            echo "::error::Réponse inattendue de Supabase : $(printf '%s' "$RESP" | head -c 300)"
+            exit 1
+          fi
           echo "count=$CNT" >> "$GITHUB_OUTPUT"
           echo "$CNT job(s) en attente"
 

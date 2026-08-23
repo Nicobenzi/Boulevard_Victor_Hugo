@@ -2,11 +2,14 @@
 
 > ## ⚠ À LIRE EN PREMIER — deux pièges d'ouverture de session
 >
-> **1. Ce projet n'est PAS Coprovia.** Les plugins installés (`coprovia-*`), les skills et
-> l'adresse mail de Nicolas pointent tous vers Coprovia — une plateforme de syndic. **Ici, rien à
-> voir** : Boulevard Victor Hugo est un studio de poèmes lus en vidéo verticale, sans copropriété,
-> sans syndic, sans gestionnaire. Le 23/08, une session a passé quatre échanges à parler d'AG et de
-> tantièmes avant que Nicolas ne la corrige. **Ne rien déduire de l'outillage installé.**
+> **1. Ce projet n'est PAS Coprovia.** Les plugins `coprovia-*` et l'adresse mail de Nicolas
+> pointent vers Coprovia — une plateforme de syndic. **Ici, rien à voir** : Boulevard Victor Hugo
+> est un studio de poèmes lus en vidéo verticale, sans copropriété, sans syndic, sans gestionnaire.
+> Le 23/08, une session a passé quatre échanges à parler d'AG et de tantièmes avant que Nicolas ne
+> la corrige. **Ne rien déduire de l'outillage installé.**
+> Les six plugins `coprovia-*` sont désormais **désactivés pour ce projet** via
+> `.claude/settings.json` (`enabledPlugins`). S'ils réapparaissent dans la liste des skills
+> disponibles, c'est que le réglage n'est pas pris en compte : le signaler à Nicolas.
 > Les skills `coprovia-*` ne s'appliquent pas ; `corrige-et-livre` et `cadre-et-specifie` sont
 > utilisables mais écrits pour Coprovia — appliquer les conventions **de ce fichier**, pas les leurs
 > (ici : tout en client components, pas de Server Components, pas de design system Paprika,

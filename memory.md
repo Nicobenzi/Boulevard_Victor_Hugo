@@ -1,5 +1,5 @@
 # memory.md — mémoire du projet
-Dernière consolidation : 23 août 2026 (fin de journée)
+Dernière consolidation : 23 août 2026 (soir — après le premier rendu réussi)
 
 Lire ce fichier au début de chaque session. Le mettre à jour après toute décision structurante.
 
@@ -42,6 +42,10 @@ si une vidéo paraît terne, chercher du côté du cadrage et du rythme, pas de 
 
 > « Nocturne » (typographie seule sur dégradé) figurait dans les notes mais **n'a jamais été
 > implémenté**. Le style `cinetique` couvre le besoin. Ne pas le réintroduire sans raison.
+
+> ⚠ **Le fond du style cinétique est le sujet non tranché du 23/08.** `painterly_bg` produit une
+> tache pâle qui se bat avec le texte, et Nicolas ne veut plus de tableaux de maîtres. Les
+> constats, le générateur retenu et la place des portraits sont en **§ 6**, pas ici.
 
 **Pourquoi le cinétique** (veille concurrence du 23/08) : un plan fixe est une cible de scroll —
 sous 50 % de rétention à 3 s, le reste ne compte pas. L'ancien Ken Burns faisait 0,15 %/s, soit
@@ -95,8 +99,8 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   Étape la moins chère si le sujet revient : mieux afficher `publications.published_url`,
   qui existe déjà et ne demande aucune API.
 - **Usine de rendu = GitHub Actions** — ffmpeg + Whisper sont trop lourds pour Vercel.
-  Alternative écartée : serveur dédié (~5 €/mois). Attention, ce n'est **pas gratuit** sur un
-  dépôt privé : voir § 6.
+  Alternative écartée : serveur dédié (~5 €/mois). Ce n'est **pas gratuit** sur un dépôt privé —
+  d'où le passage du dépôt en public le 23/08, qui sort Actions du quota (cf. § 6).
 - **Déclenchement = bouton « Générer la vidéo »** sur la fiche poème, pas de rendu automatique
   à l'upload → évite les rendus inutiles.
 - App volontairement simple : tout en client components + supabase-js direct, pas de couche
@@ -123,9 +127,9 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
 |---|---|
 | App | https://boulevard-victor-hugo.vercel.app |
 | Vercel | team `nicobenzis-projects` (Pro), projet `boulevard-victor-hugo`, deploy auto sur `main` |
-| Repo | github.com/Nicobenzi/Boulevard_Victor_Hugo — **privé** (cf. § 6) |
+| Repo | github.com/Nicobenzi/Boulevard_Victor_Hugo — **public** (Actions gratuit et illimité) |
 | Supabase | projet `cjnnzmfbqybgcmmvrodx`, org perso (Free), région eu-west-1 |
-| Secrets Actions | `SUPABASE_URL` ✅ · `SUPABASE_SERVICE_ROLE_KEY` ❌ **à poser** (cf. § 6) |
+| Secrets Actions | `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` — **posés et vérifiés** le 23/08 |
 | Rendu | `.github/workflows/render.yml` — cron **2 h** + manuel → `pipeline/render.py` (Python 3.11) |
 
 Tables : `profiles`, `allowed_emails`, `poems`, `assets`, `publications`, `render_jobs`,
@@ -150,60 +154,81 @@ Auth = lien magique ; Site URL sur l'URL Vercel (sinon le lien renvoie vers loca
 
 ---
 
-## 6. État au 23 août 2026 (fin de journée)
+## 6. État au 23 août 2026 (soir)
 
-### GitHub Actions — diagnostic constaté, pas supposé
+### La chaîne tourne
 
-Ce n'est **pas** un paiement en échec, malgré le message d'erreur qui mentionne les deux cas :
-c'est le **quota de minutes épuisé**. Les limites incluses se réinitialisent en début de mois
-→ **attendre débloque réellement**.
+Premier rendu réussi le 23/08 à 15 h 06, sur *Les Conquérants*, style `cinetique`.
+**3 minutes** par vidéo, pas les 15 estimées. Le workflow passe au vert, `render.py` produit
+le MP4, l'uploade et crée l'asset. Les trois blocages de la journée sont levés :
 
-La consommation ne vient pas de ce projet, qui n'existait pas avant le 23 : elle est antérieure.
-Attendre débloquera donc, puis le problème reviendra le mois suivant.
-(Détails de facturation volontairement non versionnés — voir les notes hors dépôt.)
+- **Quota Actions** → dépôt passé en **public**, Actions y est gratuit et illimité, hors quota.
+  Historique vérifié avant bascule : aucun secret n'a jamais été committé.
+- **`SUPABASE_SERVICE_ROLE_KEY` n'existait pas.** Découvert à la première exécution réelle,
+  masqué jusque-là par le quota. Posé depuis. Deux garde-fous ajoutés pour que ça ne puisse plus
+  passer inaperçu : le workflow refuse de démarrer si un secret est vide, et vérifie que la
+  réponse Supabase est bien une **liste** (avec un secret manquant, PostgREST renvoie un objet
+  d'erreur dont `len()` compte les clés → le workflow croyait avoir 3 jobs et déroulait tout).
+  `render.py` contrôle aussi ses variables d'env en tête de fichier : `os.environ["X"]` ne lève
+  rien pour une variable **vide**.
+- **`render_jobs_style_check` n'autorisait que `musee` et `galerie`** : la base rejetait tout job
+  en `cinetique`. Corrigé par la migration `20260823b`, qui ajoute aussi le type d'asset `broll`
+  et le trigger `updated_at` manquant sur `inspirations`.
 
-- **Correctif robuste, non appliqué** : passer le repo en **public**. Actions y est gratuit et
-  illimité, hors quota. Sans risque — aucun secret dans le code, `service_role` en GitHub Secrets.
-  Historique vérifié le 23/08 : aucun secret n'a jamais été committé.
-- **Correctif appliqué** : cron 30 min → **2 h**. 48 sondages/jour facturés une minute chacun
-  faisaient ~1 440 min/mois pour rien ; à 2 h, ~360 min/mois.
+### Ce qui reste ouvert sur l'image
 
-Tant que c'est bloqué, les rendus se font à la main dans Cowork, mêmes réglages que `render.py`.
+C'est le seul sujet non tranché, et il occupe la fin de la journée. Nicolas ne veut ni tableaux
+de maîtres (« ça fait vieux ») ni le fond actuel.
 
-### ⚠ Le secret le plus important n'existe pas
+- **`painterly_bg` est le coupable, pas la génération.** Il produit une grosse tache pâle et
+  jaune, centrée, qui se bat avec le texte. D'autres fonds **générés exactement pareil**
+  fonctionnent très bien. Ne pas conclure « il faut du filmé » : il faut un meilleur générateur.
+- **Le candidat retenu (« E »)** : nébuleuse de braise + champ d'étoiles, **animé** (bruit 3D
+  dont la 3ᵉ dimension est le temps, interpolé entre tranches), semé sur l'identifiant du poème.
+  Sombre, dans la palette, avec de grandes zones calmes pour le texte. À substituer à `painterly_bg`.
+- **Portraits d'auteur : pas en fond.** Testé sur la gravure de Heredia. Le traitement serré en
+  noir et blanc dur + grain est visuellement très fort — mais un portrait remplit le cadre de
+  détail partout et n'a **aucune zone calme** : les vers y sont illisibles. La bonne place est la
+  **carte d'ouverture** (titre + auteur, premières secondes), là où un regard retient mieux
+  qu'une texture. Puis le poème se déroule sur la matière et le noir.
+- **Banque d'images partagée** — idée de Nicolas, à implémenter. Aujourd'hui un `broll` doit être
+  lié à un poème, donc aucune mutualisation possible. Prévu : autoriser un `broll` sans poème,
+  et faire piocher `render.py` dans ce vivier (tirage semé sur l'identifiant du poème).
+  Ordre de priorité : plans propres au poème → banque partagée → fond généré.
+- **Pexels : attention aux résultats sponsorisés.** Des vignettes iStock **payantes** sont
+  mélangées aux résultats gratuits. Règle : si l'URL quitte `pexels.com`, c'est payant.
+  Licence Pexels/Pixabay : commercial, sans attribution — mais aucune autorisation des personnes
+  filmées n'est garantie, donc **pas de visages identifiables**.
+- Veille 2026 : la typographie animée est devenue un style visuel à part entière (« le texte est
+  le personnage principal »), et le grain argentique revient contre le rendu numérique trop propre.
 
-Constaté le 23/08 à la **première exécution réelle** du workflow : la page Secrets ne contient
-que `SUPABASE_URL`. **`SUPABASE_SERVICE_ROLE_KEY` n'a jamais été créé**, malgré la note
-« posés » qui figurait ici. Indétectable jusque-là : le blocage de quota refusait les jobs
-avant démarrage, donc `render.py` n'a jamais tourné une seule fois.
+### À faire
 
-Le pipeline n'aurait donc pu fonctionner sur **aucun** commit, dans **aucun** style.
+1. Remplacer `painterly_bg` par le générateur « E » (nébuleuse animée).
+2. Carte d'ouverture avec portrait d'auteur traité en N&B dur.
+3. Banque de métrage partagée (`broll` sans poème lié + tirage semé).
+4. **Caption générée** depuis le poème — rien ne la produit, et c'est 3 captions par publication
+   à écrire à la main. Le poste manuel qui saturera en premier.
+5. **Reprise des jobs bloqués** : `main()` ne reprend que les `queued`. Un job mort reste
+   `running` à jamais. Prévoir un repêchage après 1 h, et `MAX_JOBS = 2` (3 × ~3 min tient dans
+   les 40 min, mais la marge est faible si un rendu est long).
+6. Cache du modèle Whisper (~500 Mo retéléchargés à chaque exécution).
+7. Ajouter l'email du frère dans `allowed_emails`.
 
-Deux défauts corrigés dans la foulée :
-- L'étape « Check queued jobs » faisait `len()` sur la réponse JSON. Avec un secret manquant,
-  PostgREST renvoie un **objet d'erreur** dont `len()` compte les clés → le workflow croyait
-  avoir 3 jobs et enchaînait. Il vérifie maintenant que la réponse est bien une liste.
-- `os.environ["X"]` ne lève pas d'erreur pour une variable **vide** : `render.py` échouait plus
-  loin sur « supabase_key is required ». Le contrôle est désormais en tête de fichier.
+### Plafonds à surveiller
 
-→ À faire : Supabase → Project Settings → API Keys → `service_role`, puis GitHub → Settings →
-Secrets and variables → Actions → New repository secret, nom exact `SUPABASE_SERVICE_ROLE_KEY`.
+- **50 Mo par fichier** (plan Free). Une vidéo de 56 s pèse ~4 Mo en `cinetique`, donc large —
+  mais l'ancien export manuel de l'*Hymne* (1 min 47) faisait 47,8 Mo. Surveiller les poèmes longs.
+- **1 Go de stockage.** Un seul export désormais (la voix seule est supprimée), ce qui double
+  l'autonomie. Rien ne purge : `render.py` uploade et n'efface jamais.
 
-### En attente d'une action de Nicolas
+### Déjà produit
 
-1. **Deux SQL à passer** dans l'éditeur Supabase — la base est encore vide :
-   l'insertion des deux poèmes, puis `supabase/migrations/20260823_inspirations.sql`.
-   Sans la migration, l'onglet Veille affiche une erreur.
-2. **Branche `nav/fusion-publications`** — 6 commits, +1298/−300, **non mergée et non testée
-   en usage réel**. Les 6 déploiements Vercel sont en READY (les builds sont sains), mais
-   personne n'a cliqué dans la preview. À vérifier en priorité : la bascule calendrier/liste
-   et le dépôt multi-fichiers, les deux endroits où le comportement a le plus changé.
-3. **Jamais exécuté de bout en bout** : le style `cinetique` dans `render.py`, et la lecture
-   d'une bande son liée au poème. Validés par morceaux, jamais dans un vrai job.
-4. Ajouter l'email du frère dans `allowed_emails`.
-5. Uploader les 4 vidéos déjà montées — **après** l'insertion des poèmes, l'upload exige le lien.
+**Par l'usine** (23/08) — *Les Conquérants* (Heredia), style `cinetique`, 4,1 Mo. Premier passage
+complet de la chaîne. Fond = `painterly_bg` faute de métrage lié, donc à refaire quand le
+générateur sera remplacé.
 
-### Déjà produit (monté à la main)
+**Monté à la main, avant l'usine**
 
 - *Bacchanale* (Heredia, 56 s) — 2 versions : fond peint généré, puis Poussin
   (*Bacchanale à la joueuse de luth*) en travelling. Musique piano + nappe, ré mineur.

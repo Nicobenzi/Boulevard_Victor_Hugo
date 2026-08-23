@@ -20,6 +20,8 @@ const JOB_FR: Record<string, string> = {
 const RYTHME_HEURE = "18:00";
 const PLATEFORMES_AUTO = ["instagram", "tiktok", "youtube"];
 const LARGEUR_COLONNE = 288;
+const LARGEUR_REPLIEE = 46;
+const CLE_DISPOSITION = "bvh.atelier.disposition";
 
 const jourISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -43,6 +45,52 @@ export default function Atelier() {
 
   const [creating, setCreating] = useState(false);
   const [newPoem, setNewPoem] = useState<any>({});
+
+  // Disposition du kanban : préférence d'affichage pure, donc localStorage et pas la base.
+  // Lue dans un effet et non à l'initialisation de l'état, sinon le HTML rendu côté serveur
+  // ne correspond pas à celui du navigateur (erreur d'hydratation).
+  const [ordre, setOrdre] = useState<EtapeId[]>(ETAPES.map((e) => e.id));
+  const [repliees, setRepliees] = useState<Set<EtapeId>>(new Set());
+  const [glisse, setGlisse] = useState<EtapeId | null>(null);
+
+  useEffect(() => {
+    try {
+      const brut = localStorage.getItem(CLE_DISPOSITION);
+      if (!brut) return;
+      const d = JSON.parse(brut);
+      // On repart des ETAPES pour ne jamais perdre une colonne ajoutée depuis, ni en garder
+      // une qui n'existe plus.
+      const connues = ETAPES.map((e) => e.id);
+      const rangees = (d.ordre ?? []).filter((x: EtapeId) => connues.includes(x));
+      setOrdre([...rangees, ...connues.filter((x) => !rangees.includes(x))]);
+      setRepliees(new Set((d.repliees ?? []).filter((x: EtapeId) => connues.includes(x))));
+    } catch { /* préférence illisible : on garde la disposition par défaut */ }
+  }, []);
+
+  function enregistrerDisposition(o: EtapeId[], r: Set<EtapeId>) {
+    try {
+      localStorage.setItem(CLE_DISPOSITION, JSON.stringify({ ordre: o, repliees: [...r] }));
+    } catch { /* stockage indisponible : la disposition vaudra pour cette visite seulement */ }
+  }
+
+  function deposerColonne(cible: EtapeId) {
+    if (!glisse || glisse === cible) return;
+    const o = ordre.filter((x) => x !== glisse);
+    o.splice(o.indexOf(cible), 0, glisse);
+    setOrdre(o); enregistrerDisposition(o, repliees);
+    setGlisse(null);
+  }
+
+  function replier(id: EtapeId) {
+    const r = new Set(repliees);
+    r.has(id) ? r.delete(id) : r.add(id);
+    setRepliees(r); enregistrerDisposition(ordre, r);
+  }
+
+  function reinitialiserDisposition() {
+    const o = ETAPES.map((e) => e.id);
+    setOrdre(o); setRepliees(new Set()); enregistrerDisposition(o, new Set());
+  }
 
   // calendrier
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -357,43 +405,72 @@ export default function Atelier() {
           <p style={{ color: "var(--ink-dim)" }}>Aucun poème pour l&apos;instant — ajoute le premier.</p>
         ) : (
           // Une seule ligne, défilement horizontal : c'est ce qui fait un kanban.
-          <div style={{ overflowX: "auto", paddingBottom: 12 }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: "min-content" }}>
-              {ETAPES.map((etape) => {
-                const liste = parEtape[etape.id];
-                return (
-                  <div key={etape.id}
-                    style={{
-                      width: LARGEUR_COLONNE, flex: `0 0 ${LARGEUR_COLONNE}px`,
-                      background: "var(--panel)", border: "1px solid var(--line)",
-                      borderRadius: 12, padding: 10,
-                    }}>
-                    <div className="flex items-baseline gap-2 mb-3 px-1">
-                      <span className="label">{etape.titre}</span>
-                      <span className="text-xs" style={{ color: "var(--ink-dim)" }}>{liste.length}</span>
-                    </div>
-                    <div className="grid gap-2">
-                      {liste.map((p) => {
-                        const manque = manqueDe(p, ctxDe(p));
-                        return (
-                          <button key={p.id} type="button" onClick={() => ouvrir(p)}
-                            className="w-full text-left rounded-lg px-3 py-2.5"
-                            style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
-                            <div className="font-serif2 text-lg leading-tight">{p.title}</div>
-                            <div className="text-xs mt-0.5" style={{ color: "var(--ink-dim)" }}>{p.author}</div>
-                            {manque && <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>{manque}</div>}
-                          </button>
-                        );
-                      })}
-                      {liste.length === 0 && (
-                        <p className="text-xs px-1 py-2" style={{ color: "var(--ink-dim)" }}>—</p>
+          <>
+            <div className="flex justify-end mb-2">
+              <button className="text-xs" style={{ color: "var(--ink-dim)" }} onClick={reinitialiserDisposition}>
+                réinitialiser la disposition
+              </button>
+            </div>
+            <div style={{ overflowX: "auto", paddingBottom: 12 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: "min-content" }}>
+                {ordre.map((id) => {
+                  const etape = ETAPES.find((e) => e.id === id)!;
+                  const liste = parEtape[id];
+                  const repliee = repliees.has(id);
+                  const largeur = repliee ? LARGEUR_REPLIEE : LARGEUR_COLONNE;
+                  return (
+                    <div key={id}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => deposerColonne(id)}
+                      style={{
+                        width: largeur, flex: `0 0 ${largeur}px`,
+                        background: "var(--panel)", border: `1px solid ${glisse === id ? "var(--gold)" : "var(--line)"}`,
+                        borderRadius: 12, padding: repliee ? 8 : 10,
+                        opacity: glisse && glisse !== id ? 0.75 : 1,
+                      }}>
+                      {repliee ? (
+                        <button type="button" onClick={() => replier(id)} title={`Déplier ${etape.titre}`}
+                          className="w-full flex flex-col items-center gap-2 py-1">
+                          <span className="text-xs" style={{ color: "var(--ink-dim)" }}>{liste.length}</span>
+                          <span className="label" style={{ writingMode: "vertical-rl", letterSpacing: ".1em" }}>
+                            {etape.titre}
+                          </span>
+                        </button>
+                      ) : (
+                        <>
+                          <div draggable onDragStart={() => setGlisse(id)} onDragEnd={() => setGlisse(null)}
+                            className="flex items-baseline gap-2 mb-3 px-1"
+                            style={{ cursor: "grab" }} title="Glisser pour déplacer la colonne">
+                            <span className="label">{etape.titre}</span>
+                            <span className="text-xs" style={{ color: "var(--ink-dim)" }}>{liste.length}</span>
+                            <button type="button" onClick={() => replier(id)} title="Replier"
+                              className="ml-auto text-xs" style={{ color: "var(--ink-dim)" }}>–</button>
+                          </div>
+                          <div className="grid gap-2">
+                            {liste.map((p) => {
+                              const manque = manqueDe(p, ctxDe(p));
+                              return (
+                                <button key={p.id} type="button" onClick={() => ouvrir(p)}
+                                  className="w-full text-left rounded-lg px-3 py-2.5"
+                                  style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
+                                  <div className="font-serif2 text-lg leading-tight">{p.title}</div>
+                                  <div className="text-xs mt-0.5" style={{ color: "var(--ink-dim)" }}>{p.author}</div>
+                                  {manque && <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>{manque}</div>}
+                                </button>
+                              );
+                            })}
+                            {liste.length === 0 && (
+                              <p className="text-xs px-1 py-2" style={{ color: "var(--ink-dim)" }}>—</p>
+                            )}
+                          </div>
+                        </>
                       )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </>
         )
       ) : (
         <>

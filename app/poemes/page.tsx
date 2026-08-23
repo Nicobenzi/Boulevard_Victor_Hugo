@@ -155,7 +155,7 @@ export default function Poemes() {
                   <div className="border-t pt-4 mt-2" style={{ borderColor: "var(--line)" }}>
                     <div className="label mb-3">Générer une vidéo</div>
                     <div className="grid gap-3 md:grid-cols-3">
-                      <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Bande son</div>
+                      <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Voix (lecture)</div>
                         <select value={gen.audio_asset_id} onChange={(e) => setGen({ ...gen, audio_asset_id: e.target.value })}>
                           <option value="">— aucune —</option>
                           {audios.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
@@ -175,7 +175,10 @@ export default function Poemes() {
                     <button className="btn mt-3" onClick={() => launchRender(p)}>Générer la vidéo</button>
                     <p className="text-xs mt-2" style={{ color: "var(--ink-dim)" }}>
                       Le rendu tourne toutes les 30 min : transcription, sous-titres synchronisés sur le texte ci-dessus,
-                      habillage, nappe musicale. Deux fichiers arrivent dans la Bibliothèque (avec musique / voix seule).
+                      habillage, musique. Deux fichiers arrivent dans la Bibliothèque (avec musique / voix seule).
+                      {(kindsByPoem[p.id] ?? []).includes("music")
+                        ? " La bande son liée à ce poème dans la Bibliothèque sera utilisée."
+                        : " Aucune bande son liée : une nappe sera générée."}
                     </p>
                     {jobs.length > 0 && (
                       <div className="mt-3 grid gap-1">

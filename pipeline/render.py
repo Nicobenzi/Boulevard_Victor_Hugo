@@ -326,8 +326,21 @@ def process_job(job, wd):
     sh(["ffmpeg","-v","error","-y","-ss",f"{cut:.2f}","-i",raw_audio,
         "-af","highpass=f=70,afftdn=nf=-28,loudnorm=I=-14:TP=-1.5:LRA=11",
         "-ar","48000","-ac","2",voice])
+    # Musique : si une « bande son » est liee au poeme dans la Bibliotheque, on l'utilise ;
+    # sinon on retombe sur la nappe generee. (Avant, l'asset kind='music' n'etait jamais lu.)
     pad = os.path.join(wd, "pad.wav")
-    make_drone(pad, total + 0.5)
+    mus = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "music") \
+            .order("created_at").limit(1).execute().data
+    if mus:
+        src_mus = os.path.join(wd, "src_music")
+        open(src_mus, "wb").write(SB.storage.from_(mus[0]["storage_bucket"]).download(mus[0]["storage_path"]))
+        # boucle si trop courte, coupe si trop longue, et normalise au meme niveau que la nappe
+        sh(["ffmpeg","-v","error","-y","-stream_loop","-1","-i",src_mus,
+            "-t",f"{total + 0.5:.2f}","-af","loudnorm=I=-26:TP=-6:LRA=11",
+            "-ar","48000","-ac","2",pad])
+        print("  musique :", mus[0]["title"])
+    else:
+        make_drone(pad, total + 0.5)
 
     # fond
     style = job["style"]; pan = False

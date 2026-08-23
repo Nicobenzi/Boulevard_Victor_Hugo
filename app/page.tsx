@@ -83,12 +83,12 @@ export default function Accueil() {
           : "Le rythme va casser — il manque de quoi remplir les prochains jours."}
       </p>
 
-      {err && <div className="card mb-6" style={{ borderColor: "#d65454", color: "#d65454" }}>Erreur : {err}</div>}
+      {err && <div className="card mb-6" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
       <div className="grid gap-4 md:grid-cols-3 mb-10">
         <div className="card">
           <div className="label mb-1">Jours d&apos;avance</div>
-          <div className="font-serif2 text-4xl" style={{ color: tenu ? "var(--gold)" : "#d65454" }}>{avance}</div>
+          <div className="font-serif2 text-4xl" style={{ color: tenu ? "var(--gold)" : "var(--danger)" }}>{avance}</div>
           <p className="text-xs mt-1" style={{ color: "var(--ink-dim)" }}>
             jours consécutifs déjà programmés à partir de demain
           </p>

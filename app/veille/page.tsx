@@ -71,7 +71,7 @@ export default function Veille() {
         <button className="btn ml-auto" onClick={() => setAdding(!adding)}>+ Ajouter</button>
       </div>
 
-      {err && <div className="card mb-6" style={{ borderColor: "#d65454", color: "#d65454" }}>Erreur : {err}</div>}
+      {err && <div className="card mb-6" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
       {adding && (
         <form onSubmit={add} className="card mb-6 grid gap-3">
@@ -148,7 +148,7 @@ export default function Veille() {
                 <span key={t} className="text-xs" style={{ color: "var(--gold)" }}>#{t}</span>
               ))}
               {confirmId === it.id
-                ? <button className="btn2 text-xs ml-auto" style={{ color: "#d65454", borderColor: "#d65454" }}
+                ? <button className="btn2 text-xs ml-auto" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
                     onClick={() => remove(it)}>confirmer ?</button>
                 : <button className="btn2 text-xs ml-auto" onClick={() => setConfirmId(it.id)}>✕</button>}
             </div>

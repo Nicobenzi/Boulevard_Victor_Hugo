@@ -24,10 +24,27 @@ musicaux modernes d'œuvres classiques, qui restent protégés → d'où la musi
 
 ## 2. Direction artistique
 
-Palette unique : fond `#0e0c0a`, panel `#161311`, crème `#ece4d4`, or `#c9a45c`.
+**Deux palettes, à ne jamais confondre.**
+
+**La DA des vidéos reste figée** : fond `#0e0c0a`, panel `#161311`, crème `#ece4d4`, or `#c9a45c`.
 Titres et vers en **Cormorant Garamond**. Ne pas introduire d'autres couleurs ni polices.
 Contrastes vérifiés le 23/08 : tous conformes AA et AAA. **La palette n'est pas le problème** —
 si une vidéo paraît terne, chercher du côté du cadrage et du rythme, pas de la couleur.
+
+**L'app est passée en clair le 23/08** (`app/globals.css`), **un seul thème, pas de bascule**.
+Motif : « on voit rien ». Le diagnostic a montré que ce n'était **pas** un problème de texte —
+celui-ci était AAA partout (14,6 sur carte) — mais de **séparation des surfaces** : carte contre
+page à **1,06**, bordure contre page à **1,27**, là où une limite d'interface demande **3,0**.
+On lisait chaque mot sans voir la forme de rien, et le kanban à six colonnes rendait ça criant.
+Leçon : *vérifier le contraste des bordures et des surfaces, pas seulement celui du texte.*
+Palette claire : `--bg #f7f3ec` / `--panel #ffffff` / `--ink #1a1512` / `--ink-dim #5f574a` /
+`--gold #7d6021` (l'or densifié — `#c9a45c` ne tient pas sur clair, gardé en `--gold-light` pour
+les aplats seulement) / `--line #9c8e72` / `--danger #a8322f` (l'ancien `#d65454` tombait à 3,0
+sur blanc). Ratios : texte 18,1 · atténué 7,1 · or 5,9 · bordure 2,9 page / 3,2 carte.
+Plus aucun hexadécimal en dur dans les composants — tout passe par les variables.
+
+> Le choix de fond : l'app est un **outil** ouvert en plein jour, la vidéo est le **produit**.
+> Rien n'oblige l'atelier à ressembler à ce qu'on y fabrique.
 
 **Styles implémentés dans `render.py`** (valeur du champ `render_jobs.style`) :
 

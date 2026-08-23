@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react";
 import { supabase, bucketFor } from "@/lib/supabase";
 
-const KIND_LABEL: Record<string, string> = { video: "Vidéos", audio: "Voix", music: "Bandes son", image: "Images" };
+const KIND_LABEL: Record<string, string> = { video: "Vidéos", audio: "Voix", music: "Bandes son", broll: "Métrage de fond", image: "Images" };
 // Un asset orphelin est introuvable depuis la fiche du poème : on exige le lien
 // pour tout ce que le rendu consomme. Seule la musique peut resservir ailleurs.
-const POEM_REQUIRED = ["video", "audio", "image"];
+const POEM_REQUIRED = ["video", "audio", "image", "broll"];
 
 type Item = { name: string; state: "attente" | "envoi" | "ok" | "erreur"; msg?: string };
 
@@ -36,7 +36,8 @@ export default function Bibliotheque() {
   // Le type est déduit du fichier quand c'est sans ambiguïté. Un fichier audio peut être
   // une lecture ou une bande son : là, seul le choix du menu tranche.
   function kindFor(file: File) {
-    if (file.type.startsWith("video/")) return "video";
+    // Une vidéo peut être un métrage de fond ou une vidéo montée : seul le menu tranche.
+    if (file.type.startsWith("video/")) return kind === "video" ? "video" : "broll";
     if (file.type.startsWith("image/")) return "image";
     if (file.type.startsWith("audio/")) return kind === "music" ? "music" : "audio";
     return kind;
@@ -93,12 +94,16 @@ export default function Bibliotheque() {
       <div className="card mb-4 grid gap-3 md:grid-cols-2">
         <div><div className="label mb-1">Type par défaut</div>
           <select value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="video">Vidéo montée</option><option value="audio">Voix (lecture)</option>
-            <option value="music">Bande son</option><option value="image">Image / tableau</option>
+            <option value="broll">Métrage de fond (Pexels / Pixabay)</option>
+            <option value="audio">Voix (lecture)</option>
+            <option value="music">Bande son</option>
+            <option value="image">Image / tableau</option>
+            <option value="video">Vidéo montée</option>
           </select>
           <p className="text-xs mt-1" style={{ color: "var(--ink-dim)" }}>
-            Vidéos et images sont reconnues toutes seules. Ce choix ne sert qu'à distinguer
-            une voix d'une bande son.
+            Les images sont reconnues toutes seules. Pour une vidéo, ce choix tranche entre
+            un <b style={{ color: "var(--gold)", fontWeight: 400 }}>métrage de fond</b> et une
+            vidéo déjà montée.
           </p></div>
         <div><div className="label mb-1">Poème lié {needsPoem ? "" : "(optionnel)"}</div>
           <select value={poemId} onChange={(e) => setPoemId(e.target.value)}

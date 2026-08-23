@@ -139,6 +139,45 @@ def prep_cover(src, path, tw, th, grain=2.4):
     a = np.array(im, dtype=np.float32) + np.random.default_rng(3).normal(0, grain, (th, tw, 3))
     Image.fromarray(np.clip(a,0,255).astype(np.uint8)).save(path)
 
+def build_broll(wd, clips, total, cut=3.2):
+    """
+    Fond en metrage : des plans qui se relaient toutes les ~3 s, comme le fait
+    tout le contenu court qui marche. Les plans sont normalises une fois chacun
+    (ils viennent de sources heterogenes), puis enchaines en cycle.
+    Renvoie le chemin d'un mp4 de `total` secondes en W x H.
+    """
+    normes = []
+    for i, src in enumerate(clips):
+        out = os.path.join(wd, f"broll_{i}.mp4")
+        sh(["ffmpeg","-v","error","-y","-i",src,
+            "-vf",f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+                  f"eq=brightness=-0.06:saturation=0.92,fps={FPS},setsar=1",
+            "-an","-c:v","libx264","-preset","veryfast","-crf","20", out])
+        normes.append((out, float(sh(["ffprobe","-v","error","-show_entries","format=duration",
+                                      "-of","csv=p=0", out]).stdout.strip() or 0)))
+    if not normes: raise RuntimeError("aucun plan de fond exploitable")
+
+    # Liste de segments : on tourne sur les plans, et on avance dans chacun a
+    # chaque passage pour ne pas rejouer deux fois la meme seconde.
+    lignes, t, i, tetes = [], 0.0, 0, [0.0] * len(normes)
+    while t < total:
+        chemin, duree = normes[i % len(normes)]
+        tete = tetes[i % len(normes)]
+        if tete + cut > duree: tete = 0.0
+        fin = min(tete + cut, duree)
+        lignes.append(f"file '{chemin}'\ninpoint {tete:.2f}\noutpoint {fin:.2f}")
+        tetes[i % len(normes)] = fin
+        t += (fin - tete); i += 1
+        if i > 400: break          # garde-fou
+
+    liste = os.path.join(wd, "broll.txt")
+    open(liste, "w").write("ffconcat version 1.0\n" + "\n".join(lignes) + "\n")
+    bg = os.path.join(wd, "bg_broll.mp4")
+    sh(["ffmpeg","-v","error","-y","-f","concat","-safe","0","-i",liste,
+        "-t",f"{total:.2f}","-c:v","libx264","-preset","veryfast","-crf","20",
+        "-pix_fmt","yuv420p","-r",str(FPS), bg])
+    return bg
+
 def make_grad_overlay(path):
     yy = np.mgrid[0:H,0:W][0].astype(np.float32)/H
     al = np.zeros((H,W),dtype=np.float32)
@@ -383,7 +422,30 @@ def process_job(job, wd):
 
     frames = int(total * FPS)
     fade = f"fade=t=in:st=0:d=0.6,fade=t=out:st={total-5.1:.2f}:d=1.2:color=black"
+
+    # Metrage de fond : si des plans « broll » sont lies au poeme, ils remplacent
+    # l'image fixe. C'est le format de tout le contenu court qui fonctionne —
+    # des plans qui coupent, pas une image qu'on regarde une minute.
+    brolls = []
     if style == "cinetique":
+        rows = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "broll") \
+                 .order("created_at").execute().data or []
+        for i, a in enumerate(rows):
+            p = os.path.join(wd, f"src_broll_{i}")
+            open(p, "wb").write(SB.storage.from_(a["storage_bucket"]).download(a["storage_path"]))
+            brolls.append(p)
+        if brolls: print(f"  metrage : {len(brolls)} plan(s)")
+
+    if style == "cinetique" and brolls:
+        grad = os.path.join(wd, "grad.png"); make_grad_overlay(grad)
+        bg_mp4 = build_broll(wd, brolls, total)
+        blk = "+".join(f"between(t,{a:.2f},{b:.2f})" for a, b in black_spans) or "0"
+        vf = (f"[0:v]setsar=1[c];[c][1:v]overlay=0:0[o];"
+              f"[o]drawbox=x=0:y=0:w=iw:h=ih:color=0x0E0C0A@1:t=fill:enable='{blk}',"
+              f"format=yuv420p,{fade},subtitles={sub}[v]")
+        in0 = bg_mp4
+        second_in_cin = grad
+    elif style == "cinetique":
         grad = os.path.join(wd, "grad.png"); make_grad_overlay(grad)
         im = Image.open(img_path); iw, ih = im.width, im.height
         # travelling lateral dans le detail, fenetre calee sur le bas du tableau
@@ -419,7 +481,11 @@ def process_job(job, wd):
         in0 = img_path
 
     second_in = gal if style == "galerie" else (second_in_cin if style == "cinetique" else grad)
-    if style == "cinetique":
+    if style == "cinetique" and brolls:
+        # in0 est deja une video de la bonne duree : pas de loop, pas de -t
+        inputs = ["-i", in0,
+                  "-loop","1","-framerate",str(FPS),"-t",f"{total}","-i", second_in]
+    elif style == "cinetique":
         # image sans -loop : c'est le filtre loop qui la repete, après un seul décodage
         inputs = ["-i", in0,
                   "-loop","1","-framerate",str(FPS),"-t",f"{total}","-i", second_in]

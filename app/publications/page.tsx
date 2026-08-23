@@ -2,6 +2,15 @@
 import { useEffect, useState } from "react";
 import { supabase, PLATFORMS, STATUS_FR } from "@/lib/supabase";
 
+// Rythme visé : un poème par jour, à 18 h, sur les trois plateformes.
+// ⚠ La carte de fin des vidéos dit « chaque semaine, un poème » (render.py, style SigSub).
+// Si le rythme quotidien est confirmé, cette signature est à revoir.
+const RYTHME_HEURE = "18:00";
+const PLATEFORMES_AUTO = ["instagram", "tiktok", "youtube"];
+
+const jourISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 export default function Publications() {
   const [vue, setVue] = useState<"calendrier" | "liste">("calendrier");
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -13,6 +22,10 @@ export default function Publications() {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ pubId: string; vids: any[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Auto-remplissage : ce qui vient d'être créé, pour pouvoir l'annuler d'un clic.
+  const [autoCrees, setAutoCrees] = useState<{ ids: string[]; titres: string[] } | null>(null);
+  const [autoFait, setAutoFait] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
 
   // Une seule requête pour les deux vues : le volume est d'une poignée de lignes par mois,
   // le filtrage par mois se fait côté client (naviguer entre les mois ne recharge donc rien).
@@ -26,8 +39,57 @@ export default function Publications() {
     const { data: p, error: e2 } = await supabase.from("poems").select("id, title, author").order("created_at", { ascending: false });
     if (e2) { setErr(e2.message); return; }
     setPoems(p ?? []);
+    return { pubs: data ?? [], poems: p ?? [] };
   }
   useEffect(() => { load(); }, []);
+
+  // ————— auto-remplissage —————
+  // Il n'y a pas de serveur : le seul moment où l'app peut agir seule est le chargement
+  // de cette page. On ne programme QUE des poèmes dont la vidéo existe déjà — sans quoi
+  // on remplirait le calendrier de promesses que rien ne peut tenir.
+  async function autoRemplir() {
+    const r = await load();
+    if (!r) return;
+    const { pubs: P, poems: Poemes } = r;
+
+    const { data: vids } = await supabase.from("assets").select("poem_id").eq("kind", "video");
+    const avecVideo = new Set((vids ?? []).map((v: any) => v.poem_id).filter(Boolean));
+    const dejaProgrammes = new Set(P.map((p: any) => p.poems?.id ?? p.poem_id));
+
+    const candidats = [...Poemes].reverse()
+      .filter((p) => avecVideo.has(p.id) && !dejaProgrammes.has(p.id));
+    if (!candidats.length) { setAutoFait(true); return; }
+
+    const occupes = new Set(P.map((p: any) => jourISO(new Date(p.scheduled_at))));
+    const curseur = new Date(); curseur.setHours(0, 0, 0, 0); curseur.setDate(curseur.getDate() + 1);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const lignes: any[] = [], titres: string[] = [];
+    for (const poeme of candidats) {
+      while (occupes.has(jourISO(curseur))) curseur.setDate(curseur.getDate() + 1);
+      const jour = jourISO(curseur);
+      occupes.add(jour);
+      const quand = new Date(`${jour}T${RYTHME_HEURE}:00`).toISOString();
+      for (const plat of PLATEFORMES_AUTO) {
+        lignes.push({ poem_id: poeme.id, platform: plat, scheduled_at: quand, status: "draft", created_by: user?.id });
+      }
+      titres.push(`${poeme.title} — ${new Date(quand).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}`);
+      curseur.setDate(curseur.getDate() + 1);
+    }
+
+    const { data: ins, error } = await supabase.from("publications").insert(lignes).select("id");
+    setAutoFait(true);
+    if (error) { setErr(error.message); return; }
+    setAutoCrees({ ids: (ins ?? []).map((x: any) => x.id), titres });
+    load();
+  }
+  useEffect(() => { if (!autoFait) autoRemplir(); }, [autoFait]);
+
+  async function annulerAuto() {
+    if (!autoCrees) return;
+    await supabase.from("publications").delete().in("id", autoCrees.ids);
+    setAutoCrees(null); load();
+  }
 
   // Ouvre une publication du calendrier dans la vue liste, et la met en évidence.
   useEffect(() => {
@@ -112,6 +174,22 @@ export default function Publications() {
 
       {err && <div className="card mb-6" style={{ borderColor: "#d65454", color: "#d65454" }}>Erreur de chargement : {err}</div>}
 
+      {autoCrees && autoCrees.ids.length > 0 && (
+        <div className="card mb-6" style={{ borderLeft: "2px solid var(--gold)" }}>
+          <div className="flex items-center gap-3 flex-wrap mb-2">
+            <span className="label">Programmé automatiquement</span>
+            <button className="btn2 text-xs ml-auto" onClick={annulerAuto}>tout annuler</button>
+          </div>
+          {autoCrees.titres.map((t) => (
+            <div key={t} className="text-sm" style={{ color: "var(--ink-dim)" }}>{t}</div>
+          ))}
+          <p className="text-xs mt-2" style={{ color: "var(--ink-dim)" }}>
+            Un poème par jour à {RYTHME_HEURE}, sur les trois plateformes. Seuls les poèmes dont
+            la vidéo est déjà montée sont programmés.
+          </p>
+        </div>
+      )}
+
       {showForm && (
         <form onSubmit={createPub} className="card mb-6 grid gap-3 md:grid-cols-2">
           <div><div className="label mb-1">Poème</div>
@@ -144,17 +222,27 @@ export default function Publications() {
           <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden" style={{ background: "var(--line)", border: "1px solid var(--line)" }}>
             {cells.map((day, i) => {
               const dayPubs = day ? monthPubs.filter((p) => new Date(p.scheduled_at).getDate() === day) : [];
+              const iso = day ? jourISO(new Date(month.getFullYear(), month.getMonth(), day)) : "";
+              const survol = day === hover;
               return (
-                <div key={i} className="min-h-20 p-1.5" style={{ background: "var(--panel)" }}>
+                <div key={i} className="min-h-20 p-1.5 relative"
+                  style={{ background: survol ? "#1c1814" : "var(--panel)", cursor: day ? "pointer" : "default" }}
+                  onMouseEnter={() => day && setHover(day)}
+                  onMouseLeave={() => setHover(null)}
+                  onClick={() => { if (!day) return; setForm({ ...form, date: iso }); setShowForm(true); }}>
                   {day && <div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>{day}</div>}
                   {dayPubs.map((p) => (
-                    <button key={p.id} onClick={() => { setVue("liste"); setFocusId(p.id); }}
+                    <button key={p.id}
+                      onClick={(e) => { e.stopPropagation(); setVue("liste"); setFocusId(p.id); }}
                       className="block w-full text-left rounded px-1.5 py-0.5 mb-1 text-[10px] leading-tight cursor-pointer"
                       style={{ background: PLATFORMS[p.platform].color + (p.status === "published" ? "55" : "22"), color: "var(--ink)", borderLeft: `2px solid ${PLATFORMS[p.platform].color}` }}
                       title={`${p.poems?.title} — ${STATUS_FR[p.status]} · ouvrir`}>
                       {PLATFORMS[p.platform].short} · {p.poems?.title}
                     </button>
                   ))}
+                  {survol && dayPubs.length === 0 && (
+                    <div className="text-[10px] leading-tight" style={{ color: "var(--gold)" }}>+ programmer</div>
+                  )}
                 </div>
               );
             })}

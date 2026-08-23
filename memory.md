@@ -31,6 +31,15 @@ Titres et vers en **Cormorant Garamond**. Ne pas introduire d'autres couleurs ni
 - **II. Galerie** — tableau encadré d'un filet doré sur fond noir, vers sous le cadre.
   À utiliser quand l'image est en basse résolution (elle reste nette en petit).
 - **III. Nocturne** — typographie seule sur dégradé, sans image. Pour alterner.
+- **IV. Cinétique** (23/08/2026, après veille concurrence) — les mots apparaissent un à un sur la
+  voix, **un seul accent or par vers** (le mot le plus long), et l'image **alterne** avec de la
+  typographie sur noir tous les 3-4 vers. L'image n'est jamais montrée en plan large : on entre
+  à ~1,55× et la fenêtre est calée sur le **bas** du tableau, là où sont les figures.
+
+**Pourquoi** : un plan fixe est une cible de scroll (rétention < 50 % à 3 s = le reste ne compte
+pas). L'ancien Ken Burns faisait 0,15 %/s, soit une image fixe à l'œil. Et les tableaux ne sont
+pas tristes — c'était le **cadrage large** qui l'était : le même Poussin recadré sur les figures
+n'a plus rien à voir. Vérifié sur *Bacchanale*.
 
 **Structure d'une vidéo** : hook direct sur le premier vers (le titre lu est coupé), cartouche
 titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte signature à la fin.
@@ -92,6 +101,13 @@ Auth = lien magique par email ; Site URL configurée sur l'URL Vercel (sinon le 
 **Pièges rencontrés** (ne pas refaire) :
 - Vercel refuse Next.js 15.1 (CVE) → rester sur `^15.5.4`.
 - Le dashboard Supabase intercepte les frappes clavier automatisées : configurer l'auth à la main.
+- **Police : repli silencieux.** `build_ass` demandait déjà Cormorant Garamond, mais le workflow
+  la téléchargeait avec `|| true`. En cas d'échec, libass substitue sans erreur et les vidéos
+  sortent dans une autre fonte que le site. Corrigé le 23/08 : plus de `|| true`, vérification
+  `fc-list` dans le workflow **et** `check_font()` au démarrage de `render.py`.
+- **ffmpeg redécode un PNG à chaque frame** quand on fait `-loop 1 -i image.png` : ~1,9 img/s.
+  Avec le filtre `loop` (décodage unique, image gardée en mémoire) on passe à ~9 img/s à
+  1080×1920. Appliqué au style cinétique ; les styles musée/galerie restent sur l'ancien schéma.
 
 ---
 

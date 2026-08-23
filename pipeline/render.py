@@ -63,7 +63,10 @@ def align_verses(audio_path, verses):
         st, L = best
         t0 = words[idx[min(st, len(idx)-1)]][0]
         t1 = words[idx[min(st + L - 1, len(idx)-1)]][1]
-        result.append((t0, t1, bests))
+        # On garde aussi les attaques mot a mot : c'est la matiere du style cinetique.
+        wi = sorted({idx[k] for k in range(st, min(st + L, len(idx)))})
+        onsets = [words[j][0] for j in wi]
+        result.append((t0, t1, bests, onsets))
         pos = st + L
     return result
 
@@ -179,6 +182,108 @@ Style: SigSub,{font},30,&H005CA4C9,&H00FFFFFF,&H00000000,&H00000000,0,1,0,0,100,
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
+ASS_HEADER_CIN = """[Script Info]
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: VType,{font},76,{ink},&H00FFFFFF,&H96140C08,&H78000000,0,0,0,0,100,100,1,0,1,0,0,5,80,80,0,1
+Style: VImg,{font},62,{ink},&H00FFFFFF,&H96140C08,&H78000000,0,0,0,0,100,100,0,0,1,3,3,2,70,70,300,1
+Style: Title,{font},44,{ink},&H00FFFFFF,&H96140C08,&H78000000,0,0,0,0,100,100,9,0,1,1,2,8,40,40,250,1
+Style: Author,{font},26,{gold},&H00FFFFFF,&H96140C08,&H78000000,0,0,0,0,100,100,5,0,1,1,1,8,40,40,332,1
+Style: SigName,{font},62,{ink},&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,1,0,1,0,0,5,40,40,0,1
+Style: SigSub,{font},30,{gold},&H00FFFFFF,&H00000000,&H00000000,0,1,0,0,100,100,3,0,1,0,0,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+INK_ASS, GOLD_ASS = "&H00D4E4EC", "&H005CA4C9"   # #ece4d4 et #c9a45c, en BGR
+
+def _tokens(v):
+    """Decoupe un vers cesure en (mot, saut_de_ligne_avant)."""
+    out = []
+    for si, seg in enumerate(cesure(v).split("\\N")):
+        for wi, w in enumerate(seg.split()):
+            out.append((w, si > 0 and wi == 0))
+    return out
+
+def _word_times(toks, onsets, v0, v1):
+    """
+    Attaque de chaque mot affiche. On projette les mots sur les attaques reelles
+    de la transcription ; a defaut on repartit au prorata de la longueur des mots.
+    """
+    n = len(toks)
+    if n == 0: return []
+    ons = [o for o in onsets if v0 - 0.15 <= o <= v1]
+    if len(ons) >= 2:
+        m = len(ons)
+        t = [ons[min(int(round(j * m / n)), m - 1)] for j in range(n)]
+    else:
+        wgt = [len(w) + 1 for w, _ in toks]
+        tot = sum(wgt) or 1
+        span, acc, t = (v1 - v0) * 0.85, 0, []
+        for w in wgt:
+            t.append(v0 + span * acc / tot); acc += w
+    # strictement croissant, et jamais avant le debut du vers
+    t[0] = max(t[0], v0)
+    for j in range(1, n):
+        t[j] = max(t[j], t[j-1] + 0.06)
+    return [min(x, v1 - 0.05) if j == n - 1 else x for j, x in enumerate(t)]
+
+def build_ass_cinetique(path, poem, verses, starts, onsets_pv, end_last, total):
+    """
+    Style cinetique : les mots apparaissent sur la voix, un seul accent or par vers,
+    et l'image alterne avec de la typographie sur noir. Renvoie les plages 'sur noir'.
+    """
+    hdr = ASS_HEADER_CIN.format(font="Cormorant Garamond", ink=INK_ASS, gold=GOLD_ASS)
+    ev = [
+        f"Dialogue: 0,{ts(0.9)},{ts(6.4)},Title,,0,0,0,,{{\\fad(500,500)}}{poem['title'].upper()}",
+        f"Dialogue: 0,{ts(1.2)},{ts(6.4)},Author,,0,0,0,,{{\\fad(500,500)}}{poem['author'].upper()}",
+    ]
+    # Quatre mouvements d'egale longueur ; les 1er et 3e passent en typographie sur noir.
+    n = len(verses)
+    bounds = [round(n * k / 4) for k in range(5)]
+    groups = [(bounds[k], bounds[k+1] - 1) for k in range(4) if bounds[k+1] > bounds[k]]
+    on_black = {i for gi, (a, b) in enumerate(groups) if gi % 2 == 0 for i in range(a, b + 1)}
+
+    for i, v in enumerate(verses):
+        v0 = starts[i]
+        v1 = starts[i+1] if i + 1 < len(starts) else end_last + 0.3
+        toks = _tokens(v)
+        if not toks: continue
+        tw = _word_times(toks, onsets_pv[i] if i < len(onsets_pv) else [], v0, v1)
+        style = "VType" if i in on_black else "VImg"
+        gold = max(range(len(toks)), key=lambda j: (len(re.sub(r"[^\w]", "", toks[j][0], flags=re.UNICODE)), j))
+        for k in range(len(toks)):
+            t0 = tw[k]
+            t1 = tw[k+1] if k + 1 < len(toks) else v1
+            if t1 - t0 < 0.04: continue
+            parts = []
+            for j, (w, br) in enumerate(toks[:k+1]):
+                piece = (f"{{\\c{GOLD_ASS}&}}{w}{{\\c{INK_ASS}&}}") if j == gold else w
+                parts.append(("\\N" + piece) if (br and j > 0) else piece)
+            s = parts[0]
+            for p in parts[1:]:
+                s += p if p.startswith("\\N") else " " + p
+            ev.append(f"Dialogue: 0,{ts(t0)},{ts(t1)},{style},,0,0,0,,{s}")
+
+    ev.append(f"Dialogue: 0,{ts(total-3.6)},{ts(total-0.4)},SigName,,0,0,0,,{{\\fad(600,600)\\pos(540,900)}}Boulevard Victor Hugo")
+    ev.append(f"Dialogue: 0,{ts(total-3.3)},{ts(total-0.4)},SigSub,,0,0,0,,{{\\fad(600,600)\\pos(540,1000)}}chaque semaine, un poème")
+    open(path, "w").write(hdr + "\n".join(ev) + "\n")
+
+    spans = []
+    for gi, (a, b) in enumerate(groups):
+        if gi % 2: continue
+        s0 = starts[a] - 0.2 if a > 0 else 0.0
+        s1 = starts[b+1] if b + 1 < len(starts) else end_last + 0.3
+        spans.append((max(s0, 0.0), s1))
+    spans.append((end_last + 0.3, total))       # la signature de fin reste sur noir
+    return spans
+
 def build_ass(path, poem, verses, starts, end_last, total, style):
     galerie = style == "galerie"
     hdr = ASS_HEADER.format(
@@ -215,6 +320,7 @@ def process_job(job, wd):
     starts = [round(a[0] - cut, 2) for a in aligned]
     end_last = round(aligned[-1][1] - cut, 2)
     total = round(end_last + 4.9, 2)
+    onsets_pv = [[round(o - cut, 2) for o in a[3]] for a in aligned]
 
     voice = os.path.join(wd, "voice.wav")
     sh(["ffmpeg","-v","error","-y","-ss",f"{cut:.2f}","-i",raw_audio,
@@ -240,21 +346,48 @@ def process_job(job, wd):
             Image.fromarray(np.clip(a,0,255).astype(np.uint8)).save(img_path)
         elif style == "galerie":
             prep_cover(src, img_path, 850, 1233)
+        elif style == "cinetique":
+            # On entre dans le tableau : la fenetre ne montre qu'environ 65 % de sa hauteur.
+            prep_cover(src, img_path, round(W * 1.55), round(H * 1.55))
         else:
             prep_cover(src, img_path, 1600, 2845)
     else:
-        if style == "galerie":
+        if style == "cinetique":
+            painterly_bg(os.path.join(wd,"pb.png"), int(hashlib.md5(poem["id"].encode()).hexdigest()[:6],16))
+            prep_cover(os.path.join(wd,"pb.png"), img_path, round(W * 1.55), round(H * 1.55))
+        elif style == "galerie":
             painterly_bg(os.path.join(wd,"pb.png"), int(hashlib.md5(poem["id"].encode()).hexdigest()[:6],16))
             prep_cover(os.path.join(wd,"pb.png"), img_path, 850, 1233)
         else:
             painterly_bg(img_path, int(hashlib.md5(poem["id"].encode()).hexdigest()[:6],16))
 
     sub = os.path.join(wd, "sub.ass")
-    build_ass(sub, poem, verses, starts, end_last, total, style)
+    black_spans = []
+    if style == "cinetique":
+        black_spans = build_ass_cinetique(sub, poem, verses, starts, onsets_pv, end_last, total)
+    else:
+        build_ass(sub, poem, verses, starts, end_last, total, style)
 
     frames = int(total * FPS)
     fade = f"fade=t=in:st=0:d=0.6,fade=t=out:st={total-5.1:.2f}:d=1.2:color=black"
-    if style == "galerie":
+    if style == "cinetique":
+        grad = os.path.join(wd, "grad.png"); make_grad_overlay(grad)
+        im = Image.open(img_path); iw, ih = im.width, im.height
+        # travelling lateral dans le detail, fenetre calee sur le bas du tableau
+        # (c'est la que se trouvent les figures dans la peinture classique)
+        x0, x1 = round(0.15*(iw-W)), round(0.75*(iw-W))
+        ycrop = round((ih-H)*0.62)
+        blk = "+".join(f"between(t,{a:.2f},{b:.2f})" for a, b in black_spans) or "0"
+        # loop décode l'image une seule fois et la garde en mémoire. Sans ça, ffmpeg
+        # redécode le PNG à chaque frame : ~1,9 img/s au lieu de ~19.
+        vf = (f"[0:v]loop=loop={frames-1}:size=1:start=0,fps={FPS},"
+              f"crop={W}:{H}:x='{x0}+{x1-x0}*min(t/{end_last:.2f}\\,1)':y={ycrop}[c];"
+              f"[c][1:v]overlay=0:0[o];"
+              f"[o]drawbox=x=0:y=0:w=iw:h=ih:color=0x0E0C0A@1:t=fill:enable='{blk}',"
+              f"format=yuv420p,{fade},subtitles={sub}[v]")
+        in0 = img_path
+        second_in_cin = grad
+    elif style == "galerie":
         gal = os.path.join(wd, "gal.png"); make_galerie_bg(gal)
         vf = (f"[1:v]zoompan=z='1+0.06*on/{frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=754x1096:fps={FPS}[art];"
               f"[0:v][art]overlay=163:253,format=yuv420p,{fade},subtitles={sub}[v]")
@@ -272,8 +405,12 @@ def process_job(job, wd):
               f"[z][1:v]overlay=0:0,format=yuv420p,{fade},subtitles={sub}[v]")
         in0 = img_path
 
-    second_in = gal if style == "galerie" else grad
-    if style == "galerie":
+    second_in = gal if style == "galerie" else (second_in_cin if style == "cinetique" else grad)
+    if style == "cinetique":
+        # image sans -loop : c'est le filtre loop qui la repete, après un seul décodage
+        inputs = ["-i", in0,
+                  "-loop","1","-framerate",str(FPS),"-t",f"{total}","-i", second_in]
+    elif style == "galerie":
         inputs = ["-loop","1","-framerate",str(FPS),"-t",f"{total}","-i",in0,
                   "-loop","1","-framerate",str(FPS),"-t",f"{total}","-i",img_path]
     else:
@@ -311,7 +448,20 @@ def process_job(job, wd):
         if variant == "musique": video_asset_id = ins[0]["id"]
     return video_asset_id
 
+def check_font():
+    """
+    libass retombe silencieusement sur une police de substitution si Cormorant Garamond
+    est absente : les videos sortent alors dans une autre fonte que le site, sans erreur.
+    On prefere echouer bruyamment.
+    """
+    r = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True)
+    if "cormorant" not in r.stdout.lower():
+        raise RuntimeError(
+            "Cormorant Garamond introuvable (fc-list). Le rendu utiliserait une autre "
+            "police que le site. Verifie l'etape « Install ffmpeg + fonts » du workflow.")
+
 def main():
+    check_font()
     jobs = SB.table("render_jobs").select("*").eq("status","queued").order("created_at").limit(MAX_JOBS).execute().data
     if not jobs:
         print("aucun job en attente"); return

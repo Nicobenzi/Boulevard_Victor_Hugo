@@ -167,6 +167,7 @@ export default function Poemes() {
                         </select></div>
                       <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Direction artistique</div>
                         <select value={gen.style} onChange={(e) => setGen({ ...gen, style: e.target.value })}>
+                          <option value="cinetique">Cinétique (mots sur la voix)</option>
                           <option value="musee">Musée (plein écran)</option>
                           <option value="galerie">Galerie (cadre doré)</option>
                         </select></div>

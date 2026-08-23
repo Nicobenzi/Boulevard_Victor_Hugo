@@ -38,11 +38,15 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fontconfig
           mkdir -p ~/.fonts
+          # Pas de « || true » ici : sans la police, libass retombe en silence sur une
+          # substitution et les vidéos sortent dans une autre fonte que le site.
           wget -q -O ~/.fonts/CormorantGaramond.ttf \
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf" || true
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf"
           wget -q -O ~/.fonts/CormorantGaramond-Italic.ttf \
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond-Italic%5Bwght%5D.ttf" || true
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond-Italic%5Bwght%5D.ttf"
           fc-cache -f
+          fc-list : family | grep -qi cormorant \
+            || { echo "::error::Cormorant Garamond absente après installation"; exit 1; }
 
       - name: Install Python deps
         if: steps.check.outputs.count != '0'

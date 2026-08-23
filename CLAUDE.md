@@ -32,8 +32,15 @@ Le mettre à jour après toute décision structurante.
 - **Aucun secret dans le code.** `service_role` uniquement dans GitHub Secrets.
   L'URL Supabase et la clé publishable sont publiques par design (`lib/supabase.ts`).
 - **Pas de nouvelle dépendance** sans justification forte (skill `karpathy`).
-- UI en **français**. DA figée : `#0e0c0a` / `#161311` / `#ece4d4` / `#c9a45c`, serif Cormorant
-  Garamond pour titres et vers. Ne pas inventer d'autres couleurs.
+- UI en **français**. **Deux palettes distinctes, ne jamais les confondre :**
+  - **DA des vidéos — figée** : `#0e0c0a` / `#161311` / `#ece4d4` / `#c9a45c`, Cormorant Garamond.
+    Elle vit dans `pipeline/render.py`. C'est le produit. Ne pas inventer d'autres couleurs.
+  - **Palette de l'app — claire** (`app/globals.css`, depuis le 23/08). L'app est un outil ouvert
+    en plein jour, pas une vitrine. **Un seul thème, pas de bascule sombre/clair.**
+    Toute couleur passe par une variable (`--bg --panel --ink --ink-dim --gold --line --danger`) :
+    aucun hexadécimal en dur dans les composants.
+  - Contrainte de contraste : texte ≥ 4,5 et **bordures/limites ≥ 3,0** (c'est ce second seuil qui
+    manquait — cf. memory.md).
 - Sous-titres vidéo = **texte canonique** de `poems.body`, jamais la transcription brute.
   Texte collationné sur Wikisource, apostrophes typographiques `’`.
 - **Un seul export**, avec musique (la voix seule ne servait qu’au flux « ajouter un son » de TikTok, inutilisé — et doublait le stockage).

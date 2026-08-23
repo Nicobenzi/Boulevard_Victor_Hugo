@@ -309,7 +309,7 @@ export default function Atelier() {
         <button className="btn ml-auto" onClick={() => { setCreating(!creating); setNewPoem({}); }}>+ Poème</button>
       </div>
 
-      {err && <div className="card mb-6" style={{ borderColor: "#d65454", color: "#d65454" }}>Erreur : {err}</div>}
+      {err && <div className="card mb-6" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
       {autoPropose && autoPropose.poemes.length > 0 && (
         <div className="card mb-6" style={{ borderLeft: "2px solid var(--gold)" }}>
@@ -425,7 +425,7 @@ export default function Atelier() {
               const survol = day === hover;
               return (
                 <div key={i} className="min-h-20 p-1.5"
-                  style={{ background: survol ? "#1c1814" : "var(--panel)", cursor: day ? "pointer" : "default" }}
+                  style={{ background: survol ? "var(--bg)" : "var(--panel)", cursor: day ? "pointer" : "default" }}
                   onMouseEnter={() => day && setHover(day)} onMouseLeave={() => setHover(null)}
                   onClick={() => { if (!day) return; setForm({ ...form, date: iso }); setShowForm(true); }}>
                   {day && <div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>{day}</div>}
@@ -545,7 +545,7 @@ function Fiche({ p, draft, setDraft, save, setOpen, audios, images, gen, setGen,
           {jobs.length > 0 && (
             <div className="mt-3 grid gap-1">
               {jobs.map((j: any) => (
-                <div key={j.id} className="text-xs flex gap-3" style={{ color: j.status === "error" ? "#d65454" : "var(--ink-dim)" }}>
+                <div key={j.id} className="text-xs flex gap-3" style={{ color: j.status === "error" ? "var(--danger)" : "var(--ink-dim)" }}>
                   <span>{new Date(j.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
                   <span>{j.style}</span><span>{JOB_FR[j.status]}</span>
                   {j.error && <span>· {j.error.slice(0, 120)}</span>}

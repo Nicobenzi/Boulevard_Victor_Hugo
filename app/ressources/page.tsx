@@ -93,7 +93,7 @@ export default function Ressources() {
         La voix d&apos;un poème se dépose directement sur sa fiche, dans l&apos;Atelier.
         Ici : les tableaux, métrages et bandes son.
       </p>
-      {err && <div className="card mb-6" style={{ borderColor: "#d65454", color: "#d65454" }}>Erreur : {err}</div>}
+      {err && <div className="card mb-6" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
       <div className="card mb-4 grid gap-3 md:grid-cols-2">
         <div><div className="label mb-1">Type par défaut</div>
@@ -141,13 +141,13 @@ export default function Ressources() {
           {queue.map((it, i) => (
             <div key={i} className="flex gap-3 text-xs items-center">
               <span style={{
-                color: it.state === "ok" ? "var(--gold)" : it.state === "erreur" ? "#d65454" : "var(--ink-dim)",
+                color: it.state === "ok" ? "var(--gold)" : it.state === "erreur" ? "var(--danger)" : "var(--ink-dim)",
                 width: 74, flexShrink: 0,
               }}>
                 {it.state === "ok" ? "envoyé ✓" : it.state === "erreur" ? "erreur" : it.state === "envoi" ? "envoi…" : "en attente"}
               </span>
               <span style={{ color: "var(--ink)" }}>{it.name}</span>
-              {it.msg && <span style={{ color: "#d65454" }}>· {it.msg}</span>}
+              {it.msg && <span style={{ color: "var(--danger)" }}>· {it.msg}</span>}
             </div>
           ))}
         </div>
@@ -167,7 +167,7 @@ export default function Ressources() {
                   <span className="text-xs ml-auto" style={{ color: "var(--ink-dim)" }}>{a.size_bytes ? (a.size_bytes / 1e6).toFixed(1) + " Mo" : ""}</span>
                   <button className="btn2 text-xs" onClick={() => download(a)}>télécharger</button>
                   {confirmId === a.id
-                    ? <button className="btn2 text-xs" style={{ color: "#d65454", borderColor: "#d65454" }}
+                    ? <button className="btn2 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
                         onClick={() => remove(a)}>confirmer ?</button>
                     : <button className="btn2 text-xs" onClick={() => setConfirmId(a.id)}>✕</button>}
                 </div>

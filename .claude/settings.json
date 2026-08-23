@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Boulevard Victor Hugo n'est PAS Coprovia. Les plugins coprovia-* sont installes au niveau",
+    "utilisateur, donc charges dans toutes les sessions : leurs ~60 descriptions de skills",
+    "(syndic, AG, tantiemes, copropriete) arrivent dans le contexte avant toute lecture du projet",
+    "et ont deja fait deriver une session le 23/08/2026. On les eteint ici, pour ce projet",
+    "uniquement — ils restent disponibles quand Nicolas travaille sur Coprovia.",
+    "Conserves volontairement : web-quality-skills (perf / a11y / SEO, generiques),",
+    "pdf-viewer et cowork-plugin-management (neutres)."
+  ],
+  "enabledPlugins": {
+    "coprovia-audit-pack": false,
+    "coprovia-cadrage": false,
+    "coprovia-design-skills": false,
+    "coprovia-incident-response": false,
+    "coprovia-marketing": false,
+    "coprovia-onboarding": false
+  }
+}

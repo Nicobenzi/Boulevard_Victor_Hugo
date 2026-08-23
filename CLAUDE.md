@@ -1,9 +1,32 @@
 # Boulevard Victor Hugo — instructions projet
 
+> ## ⚠ À LIRE EN PREMIER — deux pièges d'ouverture de session
+>
+> **1. Ce projet n'est PAS Coprovia.** Les plugins `coprovia-*` et l'adresse mail de Nicolas
+> pointent vers Coprovia — une plateforme de syndic. **Ici, rien à voir** : Boulevard Victor Hugo
+> est un studio de poèmes lus en vidéo verticale, sans copropriété, sans syndic, sans gestionnaire.
+> Le 23/08, une session a passé quatre échanges à parler d'AG et de tantièmes avant que Nicolas ne
+> la corrige. **Ne rien déduire de l'outillage installé.**
+> Les six plugins `coprovia-*` sont désormais **désactivés pour ce projet** via
+> `.claude/settings.json` (`enabledPlugins`). S'ils réapparaissent dans la liste des skills
+> disponibles, c'est que le réglage n'est pas pris en compte : le signaler à Nicolas.
+> Les skills `coprovia-*` ne s'appliquent pas ; `corrige-et-livre` et `cadre-et-specifie` sont
+> utilisables mais écrits pour Coprovia — appliquer les conventions **de ce fichier**, pas les leurs
+> (ici : tout en client components, pas de Server Components, pas de design system Paprika,
+> repo `Nicobenzi/Boulevard_Victor_Hugo`).
+>
+> **2. Vérifier l'accès au dossier avant de conclure quoi que ce soit.** Ce fichier est injecté
+> automatiquement, mais le dossier n'est pas forcément monté pour les outils. Si `Glob`/`Read`
+> ne voient pas le repo, appeler `request_cowork_directory` sur
+> `/Users/nicolas/Documents/Claude/Projects/boulevard-victor-hugo`.
+> **Ne jamais confondre** ce dossier avec la base de connaissances du projet Claude.ai
+> (`.project-cache/…`), qui est **vide** : elle ne contient ni `docs/` ni `files/`, et son absence
+> de contenu ne dit rien de l'état du projet. La vérité est dans le dossier, pas dans le cache.
+
 Studio de production et de publication de poèmes lus, en vidéo verticale (Insta/TikTok/YouTube).
 Projet perso à deux (Nicolas + son frère). Objectif : simplicité, coût zéro, maintenance minimale.
 
-**Avant toute session : lire `memory.md`** (contexte, décisions, état, pièges connus).
+**Puis lire `memory.md`** (contexte, décisions, état, pièges connus).
 Le mettre à jour après toute décision structurante.
 
 ## Stack

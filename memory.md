@@ -1,7 +1,12 @@
 # memory.md — mémoire du projet
-Dernière consolidation : 23 août 2026 (soir — après le premier rendu réussi)
+Dernière consolidation : 23 août 2026 (soir — refonte UX, Next 16, palette claire)
 
 Lire ce fichier au début de chaque session. Le mettre à jour après toute décision structurante.
+
+> **Rappel d'ouverture** — ce projet n'est **pas** Coprovia, malgré les plugins `coprovia-*`
+> installés et l'adresse mail de Nicolas. Voir l'encadré en tête de `CLAUDE.md`. Et si les outils
+> ne voient pas le dossier, le demander (`request_cowork_directory`) plutôt que de supposer que le
+> projet est vide : la base de connaissances Claude.ai l'est, le dossier ne l'est pas.
 
 ---
 
@@ -265,6 +270,17 @@ de maîtres (« ça fait vieux ») ni le fond actuel.
   filmées n'est garantie, donc **pas de visages identifiables**.
 - Veille 2026 : la typographie animée est devenue un style visuel à part entière (« le texte est
   le personnage principal »), et le grain argentique revient contre le rendu numérique trop propre.
+
+### Livré le 23/08 au soir (4 PR, toutes mergées)
+
+1. **Refonte UX lot 1** — nav à 4 onglets, Publications fusionné dans l'Atelier, fiche à 4 champs,
+   caption générée, accueil « tenue du rythme ». Spec : `docs/specs/spec-refonte-ux-atelier-2026-08-23.md`.
+2. **Next 16** — les 3 CVE `high` (postcss, sharp) éteintes, `found 0 vulnerabilities`.
+3. **tsconfig** réécrit par Next 16, commité ; `next-env.d.ts` ignoré ; `package-lock.json` suivi.
+4. **Palette claire** — un seul thème, bordures remontées de 1,27 à 2,91.
+
+**Reste des lots de la refonte** : lot 2 (vivier partagé — bloqué par migration **et** par le
+vocabulaire d'ambiance que Nicolas doit fixer), lot 3 (colonne `à valider` — migration).
 
 ### À faire
 

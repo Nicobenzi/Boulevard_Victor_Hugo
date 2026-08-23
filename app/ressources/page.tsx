@@ -1,30 +1,54 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase, bucketFor } from "@/lib/supabase";
 
-const KIND_LABEL: Record<string, string> = { video: "Vidéos", audio: "Voix", music: "Bandes son", broll: "Métrage de fond", image: "Images" };
-// Un asset orphelin est introuvable depuis la fiche du poème : on exige le lien
-// pour tout ce que le rendu consomme. Seule la musique peut resservir ailleurs.
-const POEM_REQUIRED = ["video", "audio", "image", "broll"];
+// Ressources = une base de données, pas un classeur.
+// Le type et le poème lié sont des propriétés éditables en place : avant, se tromper de type
+// à l'upload obligeait à supprimer et redéposer. Le dépôt ne demande plus de tout choisir
+// à l'avance — on dépose, puis on classe (les non classés remontent en tête).
+//
+// `poem_id` est nullable en base et aucune contrainte ne l'exige : l'obligation n'existait
+// que dans ce composant. C'est ce qui permet au vivier partagé (ressources non liées à un
+// poème) d'exister sans migration.
 
-type Item = { name: string; state: "attente" | "envoi" | "ok" | "erreur"; msg?: string };
+const KINDS = ["broll", "image", "music", "audio", "video"] as const;
+type Kind = (typeof KINDS)[number];
+
+const KIND_LABEL: Record<string, string> = {
+  video: "vidéo montée", audio: "voix", music: "bande son",
+  broll: "métrage", image: "image",
+};
+
+// Le rendu ne consomme que ces types-là liés à un poème ; les autres peuvent vivre
+// dans le vivier commun.
+const VIVIER: string[] = ["broll", "image", "music"];
+
+const PLAFOND_OCTETS = 1_000_000_000; // 1 Go, plan Supabase Free — rien ne purge.
+
+const mo = (n?: number | null) => (n ? (n / 1e6).toFixed(1) + " Mo" : "—");
+const jour = (s: string) =>
+  new Date(s).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "2-digit" });
+
+type Tri = { col: "title" | "kind" | "poem" | "size_bytes" | "created_at"; sens: 1 | -1 };
 
 export default function Ressources() {
   const [assets, setAssets] = useState<any[]>([]);
   const [poems, setPoems] = useState<any[]>([]);
-  const [poemId, setPoemId] = useState("");
-  const [kind, setKind] = useState("video");
-  const [queue, setQueue] = useState<Item[]>([]);
+  const [q, setQ] = useState("");
+  const [filtres, setFiltres] = useState<Set<string>>(new Set());
+  const [filtrePoeme, setFiltrePoeme] = useState("");
+  const [tri, setTri] = useState<Tri>({ col: "created_at", sens: -1 });
+  const [edit, setEdit] = useState<{ id: string; champ: "kind" | "poem" } | null>(null);
+  const [queue, setQueue] = useState<{ name: string; state: string; msg?: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-
-  const needsPoem = POEM_REQUIRED.includes(kind);
-  const bloque = needsPoem && !poemId;
+  const [nouveaux, setNouveaux] = useState<Set<string>>(new Set());
 
   async function load() {
-    const { data, error } = await supabase.from("assets").select("*, poems(title)").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("assets")
+      .select("*, poems(id, title)").order("created_at", { ascending: false });
     if (error) { setErr(error.message); return; }
     setErr(null);
     setAssets(data ?? []);
@@ -33,41 +57,52 @@ export default function Ressources() {
   }
   useEffect(() => { load(); }, []);
 
-  // Le type est déduit du fichier quand c'est sans ambiguïté. Un fichier audio peut être
-  // une lecture ou une bande son : là, seul le choix du menu tranche.
-  function kindFor(file: File) {
-    // Une vidéo peut être un métrage de fond ou une vidéo montée : seul le menu tranche.
-    if (file.type.startsWith("video/")) return kind === "video" ? "video" : "broll";
-    if (file.type.startsWith("image/")) return "image";
-    if (file.type.startsWith("audio/")) return kind === "music" ? "music" : "audio";
-    return kind;
+  // Le type se déduit du fichier. Une vidéo est un métrage par défaut : c'est le cas le plus
+  // fréquent, et le reclassement est maintenant à un clic.
+  function kindFor(f: File): Kind {
+    if (f.type.startsWith("video/")) return "broll";
+    if (f.type.startsWith("image/")) return "image";
+    if (f.type.startsWith("audio/")) return "music";
+    return "image";
   }
 
   async function uploadAll(files: File[]) {
-    if (!files.length || bloque) return;
+    if (!files.length) return;
     setBusy(true);
     setQueue(files.map((f) => ({ name: f.name, state: "attente" })));
+    const crees: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      setQueue((q) => q.map((x, j) => (j === i ? { ...x, state: "envoi" } : x)));
+      setQueue((qq) => qq.map((x, j) => (j === i ? { ...x, state: "envoi" } : x)));
       const k = kindFor(file);
       const bucket = k === "music" || k === "audio" ? "audios" : bucketFor(file.type);
       const path = `${Date.now()}_${i}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
       const { error } = await supabase.storage.from(bucket).upload(path, file);
       if (error) {
-        setQueue((q) => q.map((x, j) => (j === i ? { ...x, state: "erreur", msg: error.message } : x)));
+        setQueue((qq) => qq.map((x, j) => (j === i ? { ...x, state: "erreur", msg: error.message } : x)));
         continue;
       }
       const { data: { user } } = await supabase.auth.getUser();
-      const { error: e2 } = await supabase.from("assets").insert({
-        poem_id: poemId || null, kind: k, title: file.name, storage_bucket: bucket, storage_path: path,
+      const { data: ins, error: e2 } = await supabase.from("assets").insert({
+        poem_id: null, kind: k, title: file.name, storage_bucket: bucket, storage_path: path,
         mime_type: file.type, size_bytes: file.size, created_by: user?.id,
-      });
-      setQueue((q) => q.map((x, j) => (j === i ? { ...x, state: e2 ? "erreur" : "ok", msg: e2?.message } : x)));
+      }).select("id").single();
+      if (ins) crees.push(ins.id);
+      setQueue((qq) => qq.map((x, j) => (j === i ? { ...x, state: e2 ? "erreur" : "ok", msg: e2?.message } : x)));
     }
     setBusy(false);
+    setNouveaux(new Set(crees));
     load();
     setTimeout(() => setQueue([]), 4000);
+  }
+
+  // Reclasser ne déplace pas le fichier : `storage_bucket` est mémorisé par ligne, seul
+  // le dépôt initial choisit un bucket.
+  async function patch(id: string, champs: Record<string, any>) {
+    const { error } = await supabase.from("assets").update(champs).eq("id", id);
+    if (error) { setErr(error.message); return; }
+    setEdit(null);
+    load();
   }
 
   async function download(a: any) {
@@ -82,101 +117,188 @@ export default function Ressources() {
     load();
   }
 
+  function bascule(k: string) {
+    const s = new Set(filtres);
+    s.has(k) ? s.delete(k) : s.add(k);
+    setFiltres(s);
+  }
+
+  function trier(col: Tri["col"]) {
+    setTri((t) => (t.col === col ? { col, sens: (t.sens * -1) as 1 | -1 } : { col, sens: 1 }));
+  }
+
+  const lignes = useMemo(() => {
+    let L = assets;
+    if (q.trim()) {
+      const t = q.toLowerCase();
+      L = L.filter((a) => (a.title ?? "").toLowerCase().includes(t) || (a.poems?.title ?? "").toLowerCase().includes(t));
+    }
+    if (filtres.size) L = L.filter((a) => filtres.has(a.kind));
+    if (filtrePoeme === "__vivier") L = L.filter((a) => !a.poem_id);
+    else if (filtrePoeme) L = L.filter((a) => a.poem_id === filtrePoeme);
+    const v = (a: any) =>
+      tri.col === "poem" ? (a.poems?.title ?? "") :
+      tri.col === "kind" ? KIND_LABEL[a.kind] ?? a.kind :
+      tri.col === "size_bytes" ? (a.size_bytes ?? 0) : (a[tri.col] ?? "");
+    return [...L].sort((a, b) => {
+      const x = v(a), y = v(b);
+      if (x === y) return 0;
+      return (x > y ? 1 : -1) * tri.sens;
+    });
+  }, [assets, q, filtres, filtrePoeme, tri]);
+
+  const total = assets.reduce((s, a) => s + (a.size_bytes ?? 0), 0);
+  const aClasser = assets.filter((a) => !a.poem_id && !VIVIER.includes(a.kind)).length;
+  const COLS = "minmax(180px,2.2fr) 130px minmax(120px,1.2fr) 90px 100px 96px";
+
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); if (!bloque) setOver(true); }}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={(e) => { if (e.currentTarget === e.target) setOver(false); }}
       onDrop={(e) => { e.preventDefault(); setOver(false); uploadAll(Array.from(e.dataTransfer.files)); }}
     >
-      <h1 className="font-serif2 text-3xl mb-1">Ressources</h1>
-      <p className="mb-6 text-sm" style={{ color: "var(--ink-dim)" }}>
-        La voix d&apos;un poème se dépose directement sur sa fiche, dans l&apos;Atelier.
-        Ici : les tableaux, métrages et bandes son.
+      <div className="flex items-baseline gap-3 flex-wrap mb-1">
+        <h1 className="font-serif2 text-3xl">Ressources</h1>
+        <span className="text-xs" style={{ color: "var(--ink-dim)" }}>
+          {assets.length} fichier{assets.length > 1 ? "s" : ""} · {mo(total)} sur 1 Go
+        </span>
+      </div>
+      <p className="mb-5 text-sm" style={{ color: "var(--ink-dim)" }}>
+        Dépose, puis classe. La voix d&apos;un poème se dépose sur sa fiche, dans l&apos;Atelier.
       </p>
-      {err && <div className="card mb-6" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
-      <div className="card mb-4 grid gap-3 md:grid-cols-2">
-        <div><div className="label mb-1">Type par défaut</div>
-          <select value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="broll">Métrage de fond (Pexels / Pixabay)</option>
-            <option value="audio">Voix (lecture)</option>
-            <option value="music">Bande son</option>
-            <option value="image">Image / tableau</option>
-            <option value="video">Vidéo montée</option>
-          </select>
-          <p className="text-xs mt-1" style={{ color: "var(--ink-dim)" }}>
-            Les images sont reconnues toutes seules. Pour une vidéo, ce choix tranche entre
-            un <b style={{ color: "var(--gold)", fontWeight: 400 }}>métrage de fond</b> et une
-            vidéo déjà montée.
-          </p></div>
-        <div><div className="label mb-1">Poème lié {needsPoem ? "" : "(optionnel)"}</div>
-          <select value={poemId} onChange={(e) => setPoemId(e.target.value)}
-            style={bloque ? { borderColor: "var(--gold)" } : undefined}>
-            <option value="">—</option>
-            {poems.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
-          {bloque && <p className="text-xs mt-1" style={{ color: "var(--gold)" }}>Choisis d'abord le poème lié.</p>}</div>
+      {err && <div className="card mb-4" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
+
+      {/* barre d'outils */}
+      <div className="flex gap-2 items-center flex-wrap mb-3">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…"
+          style={{ width: 200 }} />
+        {KINDS.map((k) => {
+          const on = filtres.has(k);
+          return (
+            <button key={k} onClick={() => bascule(k)} aria-pressed={on}
+              className="text-xs rounded-full px-3 py-1"
+              style={{
+                border: `1px solid ${on ? "var(--gold)" : "var(--line)"}`,
+                color: on ? "var(--gold)" : "var(--ink-dim)",
+                background: on ? "color-mix(in srgb, var(--gold) 10%, transparent)" : "transparent",
+              }}>
+              {KIND_LABEL[k]}
+            </button>
+          );
+        })}
+        <select value={filtrePoeme} onChange={(e) => setFiltrePoeme(e.target.value)} style={{ width: 190 }}>
+          <option value="">Tous les poèmes</option>
+          <option value="__vivier">Vivier commun (sans poème)</option>
+          {poems.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+        </select>
+        <label className="btn text-xs cursor-pointer ml-auto">
+          {busy ? "envoi…" : "+ Déposer"}
+          <input type="file" multiple disabled={busy} style={{ display: "none" }}
+            onChange={(e) => { uploadAll(Array.from(e.target.files ?? [])); e.currentTarget.value = ""; }} />
+        </label>
       </div>
 
-      <label className="block mb-8 rounded-xl text-center cursor-pointer transition-colors"
-        style={{
-          border: `1px dashed ${over ? "var(--gold)" : "var(--line)"}`,
-          background: over ? "rgba(201,164,92,.06)" : "var(--panel)",
-          padding: "34px 20px", opacity: bloque ? .45 : 1,
-          cursor: bloque ? "not-allowed" : "pointer",
-        }}>
-        <input type="file" multiple disabled={busy || bloque} className="hidden"
-          style={{ display: "none" }}
-          onChange={(e) => { uploadAll(Array.from(e.target.files ?? [])); e.currentTarget.value = ""; }} />
-        <div className="font-serif2 text-xl mb-1">
-          {busy ? "Envoi en cours…" : "Dépose tes fichiers ici"}
-        </div>
-        <div className="text-xs" style={{ color: "var(--ink-dim)" }}>
-          {bloque ? "Choisis le poème lié pour activer le dépôt" : "ou clique pour les choisir — plusieurs à la fois"}
-        </div>
-      </label>
+      {aClasser > 0 && (
+        <p className="text-xs mb-3" style={{ color: "var(--gold)" }}>
+          {aClasser} ressource{aClasser > 1 ? "s" : ""} que le rendu ne verra pas tant qu&apos;un poème
+          ne leur est pas lié (voix et vidéos montées doivent être rattachées).
+        </p>
+      )}
 
       {queue.length > 0 && (
-        <div className="card mb-8 grid gap-1">
+        <div className="card mb-3 grid gap-1">
           {queue.map((it, i) => (
             <div key={i} className="flex gap-3 text-xs items-center">
-              <span style={{
-                color: it.state === "ok" ? "var(--gold)" : it.state === "erreur" ? "var(--danger)" : "var(--ink-dim)",
-                width: 74, flexShrink: 0,
-              }}>
+              <span style={{ width: 74, flexShrink: 0, color: it.state === "ok" ? "var(--gold)" : it.state === "erreur" ? "var(--danger)" : "var(--ink-dim)" }}>
                 {it.state === "ok" ? "envoyé ✓" : it.state === "erreur" ? "erreur" : it.state === "envoi" ? "envoi…" : "en attente"}
               </span>
-              <span style={{ color: "var(--ink)" }}>{it.name}</span>
+              <span>{it.name}</span>
               {it.msg && <span style={{ color: "var(--danger)" }}>· {it.msg}</span>}
             </div>
           ))}
         </div>
       )}
 
-      {["video", "audio", "music", "image"].map((k) => {
-        const list = assets.filter((a) => a.kind === k);
-        if (!list.length) return null;
-        return (
-          <div key={k} className="mb-6">
-            <div className="label mb-2">{KIND_LABEL[k]}</div>
-            <div className="grid gap-2">
-              {list.map((a) => (
-                <div key={a.id} className="card flex items-center gap-3 py-3 flex-wrap">
-                  <span className="text-sm">{a.title}</span>
-                  {a.poems?.title && <span className="text-xs" style={{ color: "var(--gold)" }}>{a.poems.title}</span>}
-                  <span className="text-xs ml-auto" style={{ color: "var(--ink-dim)" }}>{a.size_bytes ? (a.size_bytes / 1e6).toFixed(1) + " Mo" : ""}</span>
-                  <button className="btn2 text-xs" onClick={() => download(a)}>télécharger</button>
-                  {confirmId === a.id
-                    ? <button className="btn2 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
-                        onClick={() => remove(a)}>confirmer ?</button>
-                    : <button className="btn2 text-xs" onClick={() => setConfirmId(a.id)}>✕</button>}
-                </div>
+      {/* table */}
+      <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--panel)" }}>
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ minWidth: 720 }}>
+            <div className="grid text-xs" style={{ gridTemplateColumns: COLS, borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
+              {([["title", "Nom"], ["kind", "Type"], ["poem", "Poème"], ["size_bytes", "Taille"], ["created_at", "Ajouté"]] as const).map(([c, l]) => (
+                <button key={c} onClick={() => trier(c)} className="text-left px-3 py-2"
+                  style={{ color: tri.col === c ? "var(--ink)" : "var(--ink-dim)", cursor: "pointer" }}>
+                  {l}{tri.col === c ? (tri.sens === 1 ? " ↑" : " ↓") : ""}
+                </button>
               ))}
+              <div />
             </div>
+
+            {lignes.map((a) => (
+              <div key={a.id} className="grid items-center text-sm"
+                style={{
+                  gridTemplateColumns: COLS, borderBottom: "1px solid var(--line)",
+                  background: nouveaux.has(a.id) ? "color-mix(in srgb, var(--gold) 7%, transparent)" : "transparent",
+                }}>
+                <div className="px-3 py-2 truncate" title={a.title}>{a.title}</div>
+
+                <div className="px-3 py-2">
+                  {edit?.id === a.id && edit.champ === "kind" ? (
+                    <select autoFocus defaultValue={a.kind} onBlur={() => setEdit(null)}
+                      onChange={(e) => patch(a.id, { kind: e.target.value })}>
+                      {KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+                    </select>
+                  ) : (
+                    <button onClick={() => setEdit({ id: a.id, champ: "kind" })}
+                      className="text-xs rounded-full px-2 py-0.5"
+                      style={{ border: "1px solid var(--line)", color: "var(--ink-dim)" }}>
+                      {KIND_LABEL[a.kind] ?? a.kind}
+                    </button>
+                  )}
+                </div>
+
+                <div className="px-3 py-2 truncate">
+                  {edit?.id === a.id && edit.champ === "poem" ? (
+                    <select autoFocus defaultValue={a.poem_id ?? ""} onBlur={() => setEdit(null)}
+                      onChange={(e) => patch(a.id, { poem_id: e.target.value || null })}>
+                      <option value="">— vivier commun —</option>
+                      {poems.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                    </select>
+                  ) : (
+                    <button onClick={() => setEdit({ id: a.id, champ: "poem" })} className="text-xs text-left truncate w-full"
+                      style={{ color: a.poems?.title ? "var(--gold)" : "var(--ink-dim)" }}>
+                      {a.poems?.title ?? "vivier commun"}
+                    </button>
+                  )}
+                </div>
+
+                <div className="px-3 py-2 text-xs" style={{ color: "var(--ink-dim)" }}>{mo(a.size_bytes)}</div>
+                <div className="px-3 py-2 text-xs" style={{ color: "var(--ink-dim)" }}>{jour(a.created_at)}</div>
+
+                <div className="px-3 py-2 flex gap-1 justify-end">
+                  <button className="text-xs" style={{ color: "var(--ink-dim)" }} onClick={() => download(a)} title="télécharger">↓</button>
+                  {confirmId === a.id
+                    ? <button className="text-xs" style={{ color: "var(--danger)" }} onClick={() => remove(a)}>confirmer ?</button>
+                    : <button className="text-xs" style={{ color: "var(--ink-dim)" }} onClick={() => setConfirmId(a.id)} title="supprimer">✕</button>}
+                </div>
+              </div>
+            ))}
+
+            {lignes.length === 0 && (
+              <div className="px-3 py-8 text-center text-sm" style={{ color: "var(--ink-dim)" }}>
+                {assets.length === 0 ? "Rien pour l'instant — dépose tes tableaux, métrages et bandes son." : "Aucune ressource ne correspond aux filtres."}
+              </div>
+            )}
           </div>
-        );
-      })}
-      {assets.length === 0 && <p style={{ color: "var(--ink-dim)" }}>Rien pour l'instant — dépose tes vidéos, voix, bandes sons et tableaux.</p>}
+        </div>
+      </div>
+
+      {over && (
+        <div className="mt-3 rounded-xl text-center font-serif2 text-xl"
+          style={{ border: "1px dashed var(--gold)", padding: "24px", color: "var(--gold)" }}>
+          Lâche pour déposer
+        </div>
+      )}
     </div>
   );
 }

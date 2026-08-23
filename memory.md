@@ -279,8 +279,24 @@ de maîtres (« ça fait vieux ») ni le fond actuel.
 3. **tsconfig** réécrit par Next 16, commité ; `next-env.d.ts` ignoré ; `package-lock.json` suivi.
 4. **Palette claire** — un seul thème, bordures remontées de 1,27 à 2,91.
 
-**Reste des lots de la refonte** : lot 2 (vivier partagé — bloqué par migration **et** par le
-vocabulaire d'ambiance que Nicolas doit fixer), lot 3 (colonne `à valider` — migration).
+5. **Ressources refondue en base de données** (style Notion) — table triable, recherche, filtres
+   par type et par poème, **type et poème éditables en place** (avant, se tromper de type à
+   l'upload obligeait à supprimer et redéposer), compteur de stockage sur le plafond de 1 Go.
+   Le dépôt ne demande plus de tout choisir à l'avance : on dépose, puis on classe.
+
+> ⚠ **Correction d'une erreur de la spec** — il n'y a **jamais eu de hard-stop** sur le vivier
+> partagé. Vérification du schéma le 23/08 : `assets.poem_id` est **nullable**, et les seules
+> contraintes sont la PK, les deux FK et `assets_kind_check`. L'obligation « poème lié » n'existait
+> que dans le composant. De même, `assets.meta` est un `jsonb NOT NULL DEFAULT '{}'` déjà en place :
+> les ambiances peuvent y vivre sans migration. **Leçon : lire le schéma avant d'annoncer une
+> migration.** Le lot 2 n'est plus bloqué que par le vocabulaire d'ambiance, qui dépend de Nicolas.
+
+**Reste des lots de la refonte** : lot 2 (ambiances — plus de migration nécessaire, seul le
+vocabulaire manque), lot 3 (colonne `à valider` — migration réelle, c'est un état humain).
+
+**Constaté le 23/08** : trois exports coexistent pour *Les Conquérants* (`cinetique`,
+`voix seule`, `avec musique`), soit ~12 Mo pour une vidéo, alors que la règle « un seul export »
+est actée. Résidus d'avant la décision — à purger, le stockage est le vrai plafond.
 
 ### À faire
 

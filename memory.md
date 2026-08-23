@@ -65,6 +65,13 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   pas de rendu automatique à l'upload → évite les rendus inutiles.
 - App volontairement simple : tout en client components + supabase-js direct, pas de couche
   d'abstraction (voir skill `karpathy`).
+- **Nav à 3 onglets** (23/08/2026, suite à l'audit navigation). `Calendrier` et `À publier` étaient
+  deux vues de la même table `publications` : fusionnés en un onglet **Publications** avec bascule
+  calendrier / liste. Une seule requête pour les deux vues, filtrage du mois côté client.
+  `/calendrier` et `/publier` restent en redirections.
+  Corollaire : l'état d'avancement d'un poème est désormais **dérivé** (body → audio → vidéo →
+  publication) et affiché sur la liste Poèmes. Le champ `poems.status` reste éditable mais n'est
+  plus la source de vérité — ne pas s'y fier.
 
 ---
 
@@ -98,7 +105,11 @@ ou passer le repo en public (Actions gratuites et illimitées ; sans risque, auc
 
 **À faire**
 - Ajouter l'email du frère dans `allowed_emails` (toujours en attente).
-- Uploader dans la Bibliothèque les 4 vidéos déjà montées.
+- Uploader dans la Bibliothèque les 4 vidéos déjà montées. ⚠ Depuis l'audit du 23/08, l'upload
+  d'une vidéo / voix / image exige de choisir le poème lié : créer les fiches Bacchanale et
+  Hymne à la Beauté d'abord.
+- Vérifier la nature du blocage GitHub Actions : un **paiement en échec** ne se débloque pas au
+  cycle de facturation suivant, contrairement à ce qui était noté ici.
 - v1.1 : upload YouTube auto ; rappel par mail le jour d'une publication programmée.
 
 **Déjà produit (monté à la main)**

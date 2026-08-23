@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { supabase, bucketFor } from "@/lib/supabase";
 
 const KIND_LABEL: Record<string, string> = { video: "Vidéos", audio: "Voix", music: "Musiques", image: "Images" };
+// Un asset orphelin est introuvable depuis la fiche du poème : on exige le lien
+// pour tout ce que le rendu consomme. Seule la musique peut resservir ailleurs.
+const POEM_REQUIRED = ["video", "audio", "image"];
 
 export default function Bibliotheque() {
   const [assets, setAssets] = useState<any[]>([]);
@@ -10,9 +13,14 @@ export default function Bibliotheque() {
   const [uploading, setUploading] = useState(false);
   const [poemId, setPoemId] = useState("");
   const [kind, setKind] = useState("video");
+  const [err, setErr] = useState<string | null>(null);
+
+  const needsPoem = POEM_REQUIRED.includes(kind);
 
   async function load() {
-    const { data } = await supabase.from("assets").select("*, poems(title)").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("assets").select("*, poems(title)").order("created_at", { ascending: false });
+    if (error) { setErr(error.message); return; }
+    setErr(null);
     setAssets(data ?? []);
     const { data: p } = await supabase.from("poems").select("id, title").order("created_at", { ascending: false });
     setPoems(p ?? []);
@@ -51,19 +59,22 @@ export default function Bibliotheque() {
   return (
     <div>
       <h1 className="font-serif2 text-3xl mb-6">Bibliothèque</h1>
+      {err && <div className="card mb-6" style={{ borderColor: "#d65454", color: "#d65454" }}>Erreur : {err}</div>}
       <div className="card mb-8 grid gap-3 md:grid-cols-3">
         <div><div className="label mb-1">Type</div>
           <select value={kind} onChange={(e) => setKind(e.target.value)}>
             <option value="video">Vidéo montée</option><option value="audio">Voix (lecture)</option>
             <option value="music">Bande son</option><option value="image">Image / tableau</option>
           </select></div>
-        <div><div className="label mb-1">Poème lié (optionnel)</div>
-          <select value={poemId} onChange={(e) => setPoemId(e.target.value)}>
+        <div><div className="label mb-1">Poème lié {needsPoem ? "" : "(optionnel)"}</div>
+          <select value={poemId} onChange={(e) => setPoemId(e.target.value)}
+            style={needsPoem && !poemId ? { borderColor: "var(--gold)" } : undefined}>
             <option value="">—</option>
             {poems.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
           </select></div>
         <div><div className="label mb-1">Fichier</div>
-          <input type="file" onChange={upload} disabled={uploading} />
+          <input type="file" onChange={upload} disabled={uploading || (needsPoem && !poemId)} />
+          {needsPoem && !poemId && <p className="text-xs mt-1" style={{ color: "var(--ink-dim)" }}>Choisis d'abord le poème lié.</p>}
           {uploading && <p className="text-xs mt-1" style={{ color: "var(--gold)" }}>envoi en cours…</p>}</div>
       </div>
 

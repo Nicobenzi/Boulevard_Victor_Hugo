@@ -119,6 +119,41 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
 - **Veille** — table `inspirations` (et non `references`, mot réservé en SQL) + onglet dédié :
   carnet des comptes et vidéos repérés ailleurs.
 
+### Refonte UX du 23/08 (soir) — spec `docs/specs/spec-refonte-ux-atelier-2026-08-23.md`
+
+Constat décisif : **les poèmes se travaillent en dehors de l'app** (choix, collationnement,
+enregistrement). L'app n'est donc pas un studio d'écriture mais une **usine de rendu + un planning**.
+L'onglet « Poèmes » mentait sur le produit, et sa fiche faisait saisir des champs jamais relus.
+
+- **Nav cible : Accueil · Atelier · Ressources · Veille.** `Publications` **fusionne dans `Atelier`**
+  (bascule kanban / calendrier) — un poème programmé est le même objet vu plus tard. Même logique
+  que la fusion `Calendrier` + `À publier` plus haut. Redirections à conserver.
+  ⚠ Cette fusion est ce qui maintient le compte à **quatre** onglets : si elle saute, la refonte
+  devient un enrichissement et l'objectif « simplifier » est manqué.
+- **Fiche poème = 4 champs** : titre, auteur, texte, voix. `source`, `statut`, `notes` retirés de
+  l'écran ; **colonnes conservées en base** (on ne migre pas pour cacher).
+- **Le choix de l'image et de la musique reste manuel.** C'est la seule décision artistique qui
+  subsiste une fois le rendu automatisé — l'automatiser reviendrait à automatiser la valeur et à
+  garder la saisie. Le tirage semé évoqué en § 6 est **écarté** pour le choix ; l'app *assiste*
+  (texte à gauche, vivier filtrable à droite) au lieu de choisir.
+  Règle générale retenue : *automatiser ce qui est mécanique et vérifiable, garder à la main ce qui
+  relève du jugement* — et ne pas automatiser un geste qu'on n'a pas fait vingt fois.
+- **Vivier décrit par un vocabulaire fermé de 8-10 ambiances**, coché à l'upload. Du texte libre ne
+  se filtre pas et ne se retrouve pas trois mois plus tard. **Liste à trancher par Nicolas.**
+- **Caption générée par gabarit déterministe** (titre, auteur, premier vers, signature, hashtags),
+  **sans LLM**, éditable ensuite.
+- **Pré-remplissage titre/auteur/texte depuis la voix : abandonné.** Gain réel = 2 champs ; coût =
+  serveur + API payante + règle « tout en client » cassée, sur un projet à coût visé 0 €. Et le
+  texte doit venir de Wikisource collationné — Whisper ne peut pas en être la source.
+- **`à valider` est un état humain**, donc une vraie colonne : c'est la seule exception au principe
+  « l'avancement est dérivé ».
+- **Accueil = « tient-on le rythme ? »** (vidéos prêtes d'avance, prochain trou au calendrier), pas
+  un comptage d'objets — la régularité de publication est la priorité du projet.
+
+Lots : **1** sans aucune migration (nav, fiche, caption, accueil) → livrable seul ;
+**2** vivier (migration asset sans poème + mots-clés) ; **3** validation (migration) ;
+**4** plomberie pipeline, à ne pas mélanger.
+
 ---
 
 ## 5. Infrastructure
@@ -206,9 +241,12 @@ de maîtres (« ça fait vieux ») ni le fond actuel.
 
 1. Remplacer `painterly_bg` par le générateur « E » (nébuleuse animée).
 2. Carte d'ouverture avec portrait d'auteur traité en N&B dur.
-3. Banque de métrage partagée (`broll` sans poème lié + tirage semé).
+3. Banque de métrage partagée (`broll` sans poème lié). ⚠ Le **tirage semé est écarté** pour le
+   choix d'une ressource (cf. refonte UX du 23/08) : la sélection reste manuelle et assistée.
+   Le tirage ne subsiste que comme **repli** quand rien n'est lié. Devient le **lot 2**.
 4. **Caption générée** depuis le poème — rien ne la produit, et c'est 3 captions par publication
    à écrire à la main. Le poste manuel qui saturera en premier.
+   → Tranché le 23/08 : **gabarit déterministe, sans LLM**. Fait partie du **lot 1** de la refonte UX.
 5. **Reprise des jobs bloqués** : `main()` ne reprend que les `queued`. Un job mort reste
    `running` à jamais. Prévoir un repêchage après 1 h, et `MAX_JOBS = 2` (3 × ~3 min tient dans
    les 40 min, mais la marge est faible si un rendu est long).

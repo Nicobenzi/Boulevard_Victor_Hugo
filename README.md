@@ -9,11 +9,12 @@ Studio de production et de publication de poèmes lus, en vidéo verticale (Inst
 
 ## Fonctionnement du rendu
 
-1. Dans l'app, sur une fiche poème : choisir la bande son + le tableau + la DA → « Générer la vidéo ».
+1. Dans l'**Atelier**, sur la fiche d'un poème : texte + voix déposés → « Générer la vidéo »
+   (image de fond et DA optionnelles, défaut `cinetique`).
 2. Un job est créé dans la table `render_jobs` (statut `queued`).
-3. Le workflow `render-videos` tourne toutes les 30 min (ou manuellement : onglet **Actions**
+3. Le workflow `render-videos` tourne toutes les 2 h (ou manuellement : onglet **Actions**
    → *render-videos* → *Run workflow*). Il traite jusqu'à 3 jobs par run.
-4. Deux MP4 (avec musique / voix seule) arrivent dans la Bibliothèque, liés au poème.
+4. Le MP4 arrive dans les Ressources, lié au poème, et le poème passe en « À programmer ».
 
 Le texte du poème (champ « texte » de la fiche, un vers par ligne) sert de référence
 pour les sous-titres : c'est lui qui est affiché, pas la transcription brute.
@@ -36,6 +37,8 @@ npm run dev
 
 ## Structure
 
-- `app/` — pages (publications [calendrier + liste], poèmes, bibliothèque)
+- `app/` — pages : accueil (tenue du rythme), atelier (kanban + calendrier), ressources, veille
+- `lib/etapes.ts` — l'étape d'un poème, dérivée des données
+- `lib/caption.ts` — gabarit de caption (déterministe, sans LLM)
 - `pipeline/render.py` — le pipeline de rendu vidéo
 - `.github/workflows/render.yml` — le déclencheur (cron 30 min + manuel)

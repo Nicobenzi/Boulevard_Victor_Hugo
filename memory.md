@@ -174,7 +174,14 @@ Auth = lien magique ; Site URL sur l'URL Vercel (sinon le lien renvoie vers loca
 
 **Pièges rencontrés (ne pas refaire)**
 
-- Vercel refuse Next.js 15.1 (CVE) → rester sur `^15.5.4`.
+- **Version de Next : rester sur le rameau courant, pas sur un rameau fermé.** Vercel refuse de
+  déployer une version porteuse d'une CVE — c'est ce qui avait forcé à quitter 15.1. Le rameau 15
+  s'est fermé sur 15.5.23 (tag `backport`), qui épingle `postcss@8.4.31` et `sharp@^0.34.3`, tous
+  deux vulnérables et **sans correctif possible en 15** (versions épinglées à l'exact par Next :
+  ni `npm audit fix` ni un override propre n'y peuvent rien). Passage à **Next 16** le 23/08.
+  Exposition réelle du projet : nulle (aucun `next/image`, aucun CSS tiers) — le motif est la
+  continuité de déploiement, pas la sécurité. Migration sans friction : config vide, aucune route
+  API, aucun middleware, aucune route dynamique, seul `next/font/google` est utilisé.
 - Le dashboard Supabase intercepte les frappes clavier automatisées : configurer l'auth à la main.
 - **Le MCP Supabase est en lecture seule.** Toute écriture (insertion, migration) doit passer par
   l'éditeur SQL du dashboard. Prévoir des scripts collables et idempotents.

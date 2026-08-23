@@ -7,7 +7,8 @@ Projet perso à deux (Nicolas + son frère). Objectif : simplicité, coût zéro
 Le mettre à jour après toute décision structurante.
 
 ## Stack
-- **App** : Next.js 15 App Router (`^15.5.4` minimum — Vercel refuse 15.1, CVE), TOUT en client
+- **App** : Next.js 16 App Router (`^16.3.2` — le rameau 15 est fermé et traîne des CVE postcss
+  et sharp que Vercel finit par refuser au déploiement), Node ≥ 20.9, TOUT en client
   components (`"use client"`) + supabase-js direct. Pas de `@supabase/ssr`, pas de route API sauf
   nécessité réelle. Tailwind v4 (`@tailwindcss/postcss`).
 - **Base** : Supabase `cjnnzmfbqybgcmmvrodx` (org perso, Free).

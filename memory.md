@@ -150,15 +150,16 @@ Auth = lien magique ; Site URL sur l'URL Vercel (sinon le lien renvoie vers loca
 ### GitHub Actions — diagnostic constaté, pas supposé
 
 Ce n'est **pas** un paiement en échec, malgré le message d'erreur qui mentionne les deux cas :
-c'est le **quota épuisé**, 3 000 / 3 000 minutes sur un compte GitHub Pro, budget à 100 %.
-Les limites incluses se réinitialisent en début de mois → **attendre débloque réellement**.
+c'est le **quota de minutes épuisé**. Les limites incluses se réinitialisent en début de mois
+→ **attendre débloque réellement**.
 
-Mais la consommation monte régulièrement depuis le 1er août (0,63 à 3,73 $/jour) alors que ce
-projet n'existait pas avant le 23 : **le quota est vidé par un autre des 9 dépôts**. Attendre
-débloquera, puis le problème reviendra le mois suivant.
+La consommation ne vient pas de ce projet, qui n'existait pas avant le 23 : elle est antérieure.
+Attendre débloquera donc, puis le problème reviendra le mois suivant.
+(Détails de facturation volontairement non versionnés — voir les notes hors dépôt.)
 
 - **Correctif robuste, non appliqué** : passer le repo en **public**. Actions y est gratuit et
   illimité, hors quota. Sans risque — aucun secret dans le code, `service_role` en GitHub Secrets.
+  Historique vérifié le 23/08 : aucun secret n'a jamais été committé.
 - **Correctif appliqué** : cron 30 min → **2 h**. 48 sondages/jour facturés une minute chacun
   faisaient ~1 440 min/mois pour rien ; à 2 h, ~360 min/mois.
 

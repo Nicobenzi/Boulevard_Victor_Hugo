@@ -18,7 +18,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body style={{ fontFamily: "var(--font-inter), sans-serif" }}>
         <AuthGate>
           <Nav />
-          <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
+          {/* Élargi le 23/08 : le kanban a six colonnes, 1024 px les écrasait. */}
+          <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
         </AuthGate>
       </body>
     </html>

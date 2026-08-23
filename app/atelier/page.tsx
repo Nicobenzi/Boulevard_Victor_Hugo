@@ -4,9 +4,14 @@ import { supabase, bucketFor, PLATFORMS, STATUS_FR } from "@/lib/supabase";
 import { ETAPES, etapeDe, manqueDe, type EtapeId } from "@/lib/etapes";
 import { genererCaption } from "@/lib/caption";
 
-// L'Atelier réunit ce qui était éclaté entre « Poèmes » et « Publications » : c'est le
-// même cycle vu à deux moments. Kanban = par étape, calendrier = par date de publication.
-// Cf. docs/specs/spec-refonte-ux-atelier-2026-08-23.md
+// L'Atelier est une base de données de poèmes avec deux vues :
+// — kanban, groupé par étape (l'étape est DÉRIVÉE des données, jamais saisie) ;
+// — calendrier, groupé par date de publication.
+// C'est le même cycle vu à deux moments. Cf. docs/specs/spec-refonte-ux-atelier-2026-08-23.md
+//
+// Le kanban tient sur UNE ligne et défile horizontalement, comme tout kanban : empiler les
+// colonnes sur deux rangées casse la lecture de gauche à droite qui fait tout son intérêt.
+// Le détail s'ouvre en fenêtre, pas en accordéon dans une carte de 300 px.
 
 const JOB_FR: Record<string, string> = {
   queued: "en file d'attente", running: "rendu en cours…", done: "terminé ✓", error: "erreur",
@@ -14,6 +19,7 @@ const JOB_FR: Record<string, string> = {
 
 const RYTHME_HEURE = "18:00";
 const PLATEFORMES_AUTO = ["instagram", "tiktok", "youtube"];
+const LARGEUR_COLONNE = 288;
 
 const jourISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -27,7 +33,7 @@ export default function Atelier() {
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
 
-  // fiche ouverte
+  // fiche ouverte (fenêtre)
   const [open, setOpen] = useState<string | null>(null);
   const [draft, setDraft] = useState<any>({});
   const [pAssets, setPAssets] = useState<any[]>([]);
@@ -35,7 +41,6 @@ export default function Atelier() {
   const [gen, setGen] = useState({ audio_asset_id: "", image_asset_id: "", style: "cinetique" });
   const [envoiVoix, setEnvoiVoix] = useState(false);
 
-  // création
   const [creating, setCreating] = useState(false);
   const [newPoem, setNewPoem] = useState<any>({});
 
@@ -47,7 +52,7 @@ export default function Atelier() {
   const [picker, setPicker] = useState<{ pubId: string; vids: any[] } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // auto-remplissage
+  // auto-programmation
   const [autoCrees, setAutoCrees] = useState<{ ids: string[]; titres: string[] } | null>(null);
   const [autoPropose, setAutoPropose] = useState<{ poemes: any[]; titres: string[] } | null>(null);
   const [autoExamine, setAutoExamine] = useState(false);
@@ -79,6 +84,17 @@ export default function Atelier() {
   }
   useEffect(() => { load(); }, []);
 
+  // Échap ferme la fenêtre.
+  // Volontairement sans tableau de dépendances : `fermer` lit `draft` et `poems` pour
+  // détecter les modifications non enregistrées. Avec des dépendances figées, la fermeture
+  // travaillerait sur une closure périmée et perdrait les modifications sans prévenir.
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") fermer(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  });
+
   function ctxDe(p: any) {
     return {
       kinds: kindsByPoem[p.id] ?? [],
@@ -87,15 +103,11 @@ export default function Atelier() {
     };
   }
 
-  // ————— auto-remplissage —————
-  // Il n'y a pas de serveur : le seul moment où l'app peut agir est le chargement de la page.
-  // Contrairement à la version précédente, on ANNONCE avant d'écrire — une app qui agit sans
-  // prévenir est ce qui donne la sensation de ne pas la maîtriser (spec, décision 8).
+  // ————— auto-programmation : on annonce avant d'écrire —————
   async function examinerAuto() {
     const r = await load();
     if (!r) return;
     const { poems: Poemes, pubs: P, kinds } = r;
-
     const dejaProgrammes = new Set(P.map((p: any) => p.poems?.id ?? p.poem_id));
     const candidats = [...Poemes].reverse()
       .filter((p: any) => (kinds[p.id] ?? []).includes("video") && !dejaProgrammes.has(p.id));
@@ -168,15 +180,15 @@ export default function Atelier() {
     return ["title", "author", "body"].some((k) => (draft[k] ?? "") !== (orig[k] ?? ""));
   }
 
-  async function openPoem(p: any) {
-    if (open === p.id) { setOpen(null); return; }
-    if (open && dirty() && !confirm("Modifications non enregistrées sur la fiche ouverte. Les abandonner ?")) return;
-    setOpen(p.id); setDraft(p);
-    loadExtras(p.id);
+  function fermer() {
+    if (dirty() && !confirm("Modifications non enregistrées. Les abandonner ?")) return;
+    setOpen(null);
   }
 
-  // `source`, `status` et `notes` ne sont plus à l'écran : les colonnes restent en base,
-  // on ne les écrase pas non plus (spec, décision 2).
+  function ouvrir(p: any) {
+    setOpen(p.id); setDraft(p); loadExtras(p.id);
+  }
+
   async function save(id: string) {
     const { error } = await supabase.from("poems")
       .update({ title: draft.title, author: draft.author, body: draft.body }).eq("id", id);
@@ -193,8 +205,6 @@ export default function Atelier() {
     setCreating(false); setNewPoem({}); load();
   }
 
-  // Déposer la voix depuis la fiche : c'est le quatrième champ du poème, il n'a rien à
-  // faire sur un autre écran.
   async function uploadVoix(poemId: string, file: File) {
     setEnvoiVoix(true);
     const path = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
@@ -249,8 +259,7 @@ export default function Atelier() {
   }
 
   async function regenererCaption(p: any) {
-    const texte = genererCaption(p.poems ?? {}, p.platform);
-    await supabase.from("publications").update({ caption: texte }).eq("id", p.id);
+    await supabase.from("publications").update({ caption: genererCaption(p.poems ?? {}, p.platform) }).eq("id", p.id);
     flash("caption régénérée ✓"); load();
   }
 
@@ -271,17 +280,15 @@ export default function Atelier() {
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   }
 
-  // ————— rendus —————
-  const audios = pAssets.filter((a) => a.kind === "audio");
-  const images = pAssets.filter((a) => a.kind === "image");
-
+  // ————— dérivés —————
   const parEtape: Record<EtapeId, any[]> = {
     preparer: [], rendre: [], rendu: [], programmer: [], programme: [], publie: [],
   };
   poems.forEach((p) => { parEtape[etapeDe(p, ctxDe(p))].push(p); });
-  // La colonne « Publié » grossit indéfiniment sinon : elle n'est là que pour la satisfaction
-  // de voir le travail fait, pas pour être parcourue.
   parEtape.publie = parEtape.publie.slice(0, 10);
+
+  const poemeOuvert = poems.find((p) => p.id === open);
+  const pubsOuvert = open ? pubs.filter((x) => (x.poems?.id ?? x.poem_id) === open) : [];
 
   const firstDay = (month.getDay() + 6) % 7;
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
@@ -294,7 +301,7 @@ export default function Atelier() {
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6 flex-wrap">
+      <div className="flex items-center gap-4 mb-5 flex-wrap">
         <h1 className="font-serif2 text-3xl">Atelier</h1>
         <div className="flex gap-2">
           {(["kanban", "calendrier"] as const).map((v) => (
@@ -309,27 +316,25 @@ export default function Atelier() {
         <button className="btn ml-auto" onClick={() => { setCreating(!creating); setNewPoem({}); }}>+ Poème</button>
       </div>
 
-      {err && <div className="card mb-6" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
+      {err && <div className="card mb-4" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
       {autoPropose && autoPropose.poemes.length > 0 && (
-        <div className="card mb-6" style={{ borderLeft: "2px solid var(--gold)" }}>
+        <div className="card mb-4" style={{ borderLeft: "2px solid var(--gold)" }}>
           <div className="flex items-center gap-3 flex-wrap mb-2">
             <span className="label">À programmer — {autoPropose.poemes.length} vidéo{autoPropose.poemes.length > 1 ? "s" : ""} prête{autoPropose.poemes.length > 1 ? "s" : ""}</span>
             <button className="btn text-xs ml-auto" onClick={confirmerAuto}>programmer</button>
             <button className="btn2 text-xs" onClick={() => setAutoPropose(null)}>plus tard</button>
           </div>
-          {autoPropose.titres.map((t) => (
-            <div key={t} className="text-sm" style={{ color: "var(--ink-dim)" }}>{t}</div>
-          ))}
+          {autoPropose.titres.map((t) => <div key={t} className="text-sm" style={{ color: "var(--ink-dim)" }}>{t}</div>)}
           <p className="text-xs mt-2" style={{ color: "var(--ink-dim)" }}>
             Un poème par jour à {RYTHME_HEURE}, sur les trois plateformes, caption pré-remplie.
-            Rien n'est écrit tant que tu n'as pas cliqué.
+            Rien n&apos;est écrit tant que tu n&apos;as pas cliqué.
           </p>
         </div>
       )}
 
       {autoCrees && autoCrees.ids.length > 0 && (
-        <div className="card mb-6" style={{ borderLeft: "2px solid var(--gold)" }}>
+        <div className="card mb-4" style={{ borderLeft: "2px solid var(--gold)" }}>
           <div className="flex items-center gap-3 flex-wrap mb-2">
             <span className="label">Programmé</span>
             <button className="btn2 text-xs ml-auto" onClick={annulerAuto}>tout annuler</button>
@@ -339,7 +344,7 @@ export default function Atelier() {
       )}
 
       {creating && (
-        <form onSubmit={create} className="card mb-6 grid gap-3">
+        <form onSubmit={create} className="card mb-4 grid gap-3" style={{ maxWidth: 640 }}>
           <input required placeholder="Titre" value={newPoem.title ?? ""} onChange={(e) => setNewPoem({ ...newPoem, title: e.target.value })} />
           <input required placeholder="Auteur" value={newPoem.author ?? ""} onChange={(e) => setNewPoem({ ...newPoem, author: e.target.value })} />
           <textarea rows={6} placeholder="Texte du poème (édition de référence) — un vers par ligne" value={newPoem.body ?? ""} onChange={(e) => setNewPoem({ ...newPoem, body: e.target.value })} />
@@ -347,46 +352,49 @@ export default function Atelier() {
         </form>
       )}
 
-      {vue === "kanban" && poems.length === 0 && !creating && (
-        <p style={{ color: "var(--ink-dim)" }}>Aucun poème pour l&apos;instant — ajoute le premier.</p>
-      )}
-
       {vue === "kanban" ? (
-        <div className="grid gap-6 md:grid-cols-3">
-          {ETAPES.map((etape) => {
-            const liste = parEtape[etape.id];
-            return (
-              <div key={etape.id}>
-                <div className="label mb-2 flex gap-2">
-                  <span>{etape.titre}</span>
-                  <span style={{ color: "var(--ink-dim)" }}>{liste.length}</span>
-                </div>
-                <div className="grid gap-2">
-                  {liste.map((p) => {
-                    const manque = manqueDe(p, ctxDe(p));
-                    return (
-                      <div key={p.id} className="card" style={open === p.id ? { borderColor: "var(--gold)" } : undefined}>
-                        <button type="button" onClick={() => openPoem(p)} aria-expanded={open === p.id} className="w-full text-left">
-                          <div className="font-serif2 text-lg leading-tight">{p.title}</div>
-                          <div className="text-xs" style={{ color: "var(--ink-dim)" }}>{p.author}</div>
-                          {manque && <div className="text-xs mt-1" style={{ color: "var(--gold)" }}>{manque}</div>}
-                        </button>
-                        {open === p.id && (
-                          <Fiche
-                            p={p} draft={draft} setDraft={setDraft} save={save} setOpen={setOpen}
-                            audios={audios} images={images} gen={gen} setGen={setGen}
-                            launchRender={launchRender} jobs={jobs} uploadVoix={uploadVoix} envoiVoix={envoiVoix}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                  {liste.length === 0 && <p className="text-xs" style={{ color: "var(--ink-dim)" }}>—</p>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        poems.length === 0 && !creating ? (
+          <p style={{ color: "var(--ink-dim)" }}>Aucun poème pour l&apos;instant — ajoute le premier.</p>
+        ) : (
+          // Une seule ligne, défilement horizontal : c'est ce qui fait un kanban.
+          <div style={{ overflowX: "auto", paddingBottom: 12 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: "min-content" }}>
+              {ETAPES.map((etape) => {
+                const liste = parEtape[etape.id];
+                return (
+                  <div key={etape.id}
+                    style={{
+                      width: LARGEUR_COLONNE, flex: `0 0 ${LARGEUR_COLONNE}px`,
+                      background: "var(--panel)", border: "1px solid var(--line)",
+                      borderRadius: 12, padding: 10,
+                    }}>
+                    <div className="flex items-baseline gap-2 mb-3 px-1">
+                      <span className="label">{etape.titre}</span>
+                      <span className="text-xs" style={{ color: "var(--ink-dim)" }}>{liste.length}</span>
+                    </div>
+                    <div className="grid gap-2">
+                      {liste.map((p) => {
+                        const manque = manqueDe(p, ctxDe(p));
+                        return (
+                          <button key={p.id} type="button" onClick={() => ouvrir(p)}
+                            className="w-full text-left rounded-lg px-3 py-2.5"
+                            style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
+                            <div className="font-serif2 text-lg leading-tight">{p.title}</div>
+                            <div className="text-xs mt-0.5" style={{ color: "var(--ink-dim)" }}>{p.author}</div>
+                            {manque && <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>{manque}</div>}
+                          </button>
+                        );
+                      })}
+                      {liste.length === 0 && (
+                        <p className="text-xs px-1 py-2" style={{ color: "var(--ink-dim)" }}>—</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )
       ) : (
         <>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -397,7 +405,7 @@ export default function Atelier() {
           </div>
 
           {showForm && (
-            <form onSubmit={createPub} className="card mb-6 grid gap-3 md:grid-cols-2">
+            <form onSubmit={createPub} className="card mb-6 grid gap-3 md:grid-cols-2" style={{ maxWidth: 760 }}>
               <div><div className="label mb-1">Poème</div>
                 <select required value={form.poem_id} onChange={(e) => setForm({ ...form, poem_id: e.target.value })}>
                   <option value="">— choisir —</option>
@@ -424,14 +432,13 @@ export default function Atelier() {
               const iso = day ? jourISO(new Date(month.getFullYear(), month.getMonth(), day)) : "";
               const survol = day === hover;
               return (
-                <div key={i} className="min-h-20 p-1.5"
+                <div key={i} className="min-h-24 p-1.5"
                   style={{ background: survol ? "var(--bg)" : "var(--panel)", cursor: day ? "pointer" : "default" }}
                   onMouseEnter={() => day && setHover(day)} onMouseLeave={() => setHover(null)}
                   onClick={() => { if (!day) return; setForm({ ...form, date: iso }); setShowForm(true); }}>
                   {day && <div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>{day}</div>}
                   {dayPubs.map((p) => (
-                    <div key={p.id}
-                      className="block w-full text-left rounded px-1.5 py-0.5 mb-1 text-[10px] leading-tight"
+                    <div key={p.id} className="block w-full text-left rounded px-1.5 py-0.5 mb-1 text-[10px] leading-tight"
                       style={{ background: PLATFORMS[p.platform].color + (p.status === "published" ? "55" : "22"), color: "var(--ink)", borderLeft: `2px solid ${PLATFORMS[p.platform].color}` }}
                       title={`${p.poems?.title} — ${STATUS_FR[p.status]}`}>
                       {PLATFORMS[p.platform].short} · {p.poems?.title}
@@ -446,7 +453,7 @@ export default function Atelier() {
           </div>
 
           <div className="label mb-2">En attente de publication</div>
-          <div className="grid gap-4">
+          <div className="grid gap-4" style={{ maxWidth: 900 }}>
             {upcoming.map((p) => (
               <div key={p.id} className="card">
                 <div className="flex items-center gap-3 flex-wrap mb-3">
@@ -489,70 +496,111 @@ export default function Atelier() {
           </div>
         </>
       )}
-    </div>
-  );
-}
 
-// La fiche : quatre champs utiles et rien d'autre. `source`, `statut` et `notes` ont quitté
-// l'écran (colonnes conservées en base) — spec, décision 2.
-function Fiche({ p, draft, setDraft, save, setOpen, audios, images, gen, setGen, launchRender, jobs, uploadVoix, envoiVoix }: any) {
-  const pretARendre = !!draft.body?.trim() && !!gen.audio_asset_id;
-  return (
-    <div className="grid gap-3 mt-4">
-      <input value={draft.title ?? ""} placeholder="Titre" onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
-      <input value={draft.author ?? ""} placeholder="Auteur" onChange={(e) => setDraft({ ...draft, author: e.target.value })} />
-      <textarea rows={8} placeholder="Texte du poème — un vers par ligne (sert aux sous-titres)"
-        value={draft.body ?? ""} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
-
-      <div>
-        <div className="label mb-1">Voix</div>
-        {audios.length > 0 ? (
-          <select value={gen.audio_asset_id} onChange={(e) => setGen({ ...gen, audio_asset_id: e.target.value })}>
-            <option value="">— aucune —</option>
-            {audios.map((a: any) => <option key={a.id} value={a.id}>{a.title}</option>)}
-          </select>
-        ) : (
-          <label className="btn2 text-xs inline-block cursor-pointer">
-            {envoiVoix ? "envoi…" : "déposer l'enregistrement"}
-            <input type="file" accept="audio/*" style={{ display: "none" }} disabled={envoiVoix}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVoix(p.id, f); e.currentTarget.value = ""; }} />
-          </label>
-        )}
-      </div>
-
-      <div className="flex gap-3 flex-wrap">
-        <button className="btn" onClick={() => save(p.id)}>Enregistrer</button>
-        <button className="btn2" onClick={() => setOpen(null)}>Fermer</button>
-      </div>
-
-      {pretARendre && (
-        <div className="border-t pt-4 mt-2" style={{ borderColor: "var(--line)" }}>
-          <div className="label mb-3">Générer la vidéo</div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Image de fond (optionnel)</div>
-              <select value={gen.image_asset_id} onChange={(e) => setGen({ ...gen, image_asset_id: e.target.value })}>
-                <option value="">— fond généré —</option>
-                {images.map((a: any) => <option key={a.id} value={a.id}>{a.title}</option>)}
-              </select></div>
-            <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Direction artistique</div>
-              <select value={gen.style} onChange={(e) => setGen({ ...gen, style: e.target.value })}>
-                <option value="cinetique">Cinétique (mots sur la voix)</option>
-                <option value="musee">Musée (plein écran)</option>
-                <option value="galerie">Galerie (cadre doré)</option>
-              </select></div>
-          </div>
-          <button className="btn mt-3" onClick={() => launchRender(p)}>Générer la vidéo</button>
-          {jobs.length > 0 && (
-            <div className="mt-3 grid gap-1">
-              {jobs.map((j: any) => (
-                <div key={j.id} className="text-xs flex gap-3" style={{ color: j.status === "error" ? "var(--danger)" : "var(--ink-dim)" }}>
-                  <span>{new Date(j.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                  <span>{j.style}</span><span>{JOB_FR[j.status]}</span>
-                  {j.error && <span>· {j.error.slice(0, 120)}</span>}
-                </div>
-              ))}
+      {/* ————— la fiche, en fenêtre ————— */}
+      {poemeOuvert && (
+        <div role="dialog" aria-modal="true" aria-label={poemeOuvert.title}
+          onClick={(e) => { if (e.currentTarget === e.target) fermer(); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 50, display: "flex",
+            alignItems: "flex-start", justifyContent: "center", padding: "5vh 16px",
+            background: "color-mix(in srgb, var(--ink) 45%, transparent)",
+          }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 880, maxHeight: "90vh", overflowY: "auto",
+              background: "var(--panel)", border: "1px solid var(--line)", borderRadius: 16,
+              padding: 24,
+            }}>
+            <div className="flex items-center gap-3 mb-5 flex-wrap">
+              <span className="label">{ETAPES.find((e) => e.id === etapeDe(poemeOuvert, ctxDe(poemeOuvert)))?.titre}</span>
+              <button className="btn2 text-xs ml-auto" onClick={fermer}>Fermer ✕</button>
             </div>
-          )}
+
+            <input className="mb-3" value={draft.title ?? ""} placeholder="Titre"
+              style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: 28, border: "none", background: "transparent", padding: 0 }}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+            <input className="mb-4" value={draft.author ?? ""} placeholder="Auteur"
+              style={{ border: "none", background: "transparent", padding: 0, color: "var(--ink-dim)" }}
+              onChange={(e) => setDraft({ ...draft, author: e.target.value })} />
+
+            <div className="label mb-1">Texte — un vers par ligne, il sert aux sous-titres</div>
+            <textarea rows={16} className="mb-4" value={draft.body ?? ""}
+              style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: 17, lineHeight: 1.6 }}
+              onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+
+            <div className="grid gap-4 md:grid-cols-2 mb-4">
+              <div>
+                <div className="label mb-1">Voix</div>
+                {pAssets.filter((a) => a.kind === "audio").length > 0 ? (
+                  <select value={gen.audio_asset_id} onChange={(e) => setGen({ ...gen, audio_asset_id: e.target.value })}>
+                    <option value="">— aucune —</option>
+                    {pAssets.filter((a) => a.kind === "audio").map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                  </select>
+                ) : (
+                  <label className="btn2 text-xs inline-block cursor-pointer">
+                    {envoiVoix ? "envoi…" : "déposer l'enregistrement"}
+                    <input type="file" accept="audio/*" style={{ display: "none" }} disabled={envoiVoix}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVoix(poemeOuvert.id, f); e.currentTarget.value = ""; }} />
+                  </label>
+                )}
+              </div>
+              <div>
+                <div className="label mb-1">Image de fond</div>
+                <select value={gen.image_asset_id} onChange={(e) => setGen({ ...gen, image_asset_id: e.target.value })}>
+                  <option value="">— fond généré —</option>
+                  {pAssets.filter((a) => a.kind === "image").map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {draft.body?.trim() && gen.audio_asset_id && (
+              <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>
+                <div className="flex gap-3 items-end flex-wrap">
+                  <div style={{ maxWidth: 260, flex: 1 }}>
+                    <div className="label mb-1">Direction artistique</div>
+                    <select value={gen.style} onChange={(e) => setGen({ ...gen, style: e.target.value })}>
+                      <option value="cinetique">Cinétique (mots sur la voix)</option>
+                      <option value="musee">Musée (plein écran)</option>
+                      <option value="galerie">Galerie (cadre doré)</option>
+                    </select>
+                  </div>
+                  <button className="btn" onClick={() => launchRender(poemeOuvert)}>Générer la vidéo</button>
+                </div>
+                {jobs.length > 0 && (
+                  <div className="mt-3 grid gap-1">
+                    {jobs.map((j) => (
+                      <div key={j.id} className="text-xs flex gap-3" style={{ color: j.status === "error" ? "var(--danger)" : "var(--ink-dim)" }}>
+                        <span>{new Date(j.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                        <span>{j.style}</span><span>{JOB_FR[j.status]}</span>
+                        {j.error && <span>· {j.error.slice(0, 120)}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {pubsOuvert.length > 0 && (
+              <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>
+                <div className="label mb-2">Publications</div>
+                {pubsOuvert.map((p) => (
+                  <div key={p.id} className="flex gap-3 items-center text-sm py-1 flex-wrap">
+                    <span className="text-xs" style={{ color: PLATFORMS[p.platform].color }}>{PLATFORMS[p.platform].name}</span>
+                    <span style={{ color: "var(--ink-dim)" }}>
+                      {new Date(p.scheduled_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
+                    </span>
+                    <span className="label">{STATUS_FR[p.status]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-3 flex-wrap border-t pt-4" style={{ borderColor: "var(--line)" }}>
+              <button className="btn" onClick={() => save(poemeOuvert.id)}>Enregistrer</button>
+              <button className="btn2" onClick={fermer}>Annuler</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -2,7 +2,11 @@ name: render-videos
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Toutes les 2 h, pas toutes les 30 min : GitHub arrondit chaque job a la minute
+    # pleine, donc une execution a vide de 4 s coute une minute. A 30 min d'intervalle
+    # cela faisait ~1440 min/mois de sondage pour rien, soit la moitie d'un quota Pro.
+    # Rythme de publication : un poeme par semaine. Deux heures d'attente ne changent rien.
+    - cron: "0 */2 * * *"
   workflow_dispatch: {}
 
 concurrency:

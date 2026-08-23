@@ -121,11 +121,22 @@ Auth = lien magique par email ; Site URL configurée sur l'URL Vercel (sinon le 
 
 ## 6. État au 23 août 2026
 
-**En pause** — GitHub Actions bloqué : « recent account payments have failed or your spending limit
-needs to be increased ». Choix de Nicolas : attendre le prochain cycle de facturation.
-Si le blocage persiste (cas d'un paiement en échec, il ne se débloque pas seul) : régulariser la carte,
-ou passer le repo en public (Actions gratuites et illimitées ; sans risque, aucun secret n'est dans le code).
-→ En attendant, les rendus se font à la main dans Cowork, avec les mêmes réglages que `pipeline/render.py`.
+**GitHub Actions — diagnostic posé le 23/08/2026** (constaté sur la page de facturation, pas supposé).
+Ce n'est **pas** un paiement en échec, malgré le libellé du message d'erreur qui mentionne les deux cas :
+c'est le **quota Actions épuisé**, 3 000 / 3 000 minutes sur un compte GitHub Pro, budget à 100 %.
+Les limites incluses se réinitialisent chaque début de mois → **attendre débloque réellement**.
+
+Mais la consommation monte régulièrement depuis le 1er août (0,63 à 3,73 $/jour) alors que ce projet
+n'existait pas avant le 23 : **le quota est vidé par un autre des 9 dépôts**, pas par celui-ci.
+Attendre débloquera donc, puis le problème reviendra le mois suivant.
+
+- **Correctif robuste** : passer le repo en **public**. Actions y est gratuit et illimité, hors quota.
+  Sans risque : aucun secret dans le code, `service_role` uniquement en GitHub Secrets.
+- **Correctif appliqué le 23/08** : cron passé de 30 min à **2 h**. GitHub arrondit chaque job à la
+  minute pleine, donc une exécution à vide de 4 s coûte 1 minute : 48 sondages/jour = ~1 440 min/mois
+  pour rien. À 2 h : ~360 min/mois.
+
+→ Tant que c'est bloqué, les rendus se font à la main dans Cowork, mêmes réglages que `pipeline/render.py`.
 
 **À faire**
 - Ajouter l'email du frère dans `allowed_emails` (toujours en attente).

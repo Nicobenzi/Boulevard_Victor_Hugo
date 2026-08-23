@@ -103,6 +103,24 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   puis le mix entier est renormalisé à −14 LUFS / −1,5 dBTP. Ne pas remplacer ce dernier
   `loudnorm` par un `alimiter` : celui-ci ne borne que la crête d'échantillon, la crête
   **réelle** montait à 0,0 dBTP (écrêtage inter-échantillon à l'encodage AAC).
+- **Étalonnage du métrage de fond (23/08)** — constante `ETALONNAGE` dans `render.py`, un seul
+  endroit à régler. L'ancien réglage (`brightness=-0.06:saturation=0.92`) était homéopathique :
+  un feu de cheminée restait orange saturé, et aucun métrage n'avait jamais l'air d'appartenir
+  au même film. La chaîne actuelle — désaturation forte, virage vers la palette, flou, vignette,
+  grain — ramène n'importe quelle source dans la DA. Mesuré sur aplats :
+  braises `#ff7a1a → #ba8d51` (l'or est `#c9a45c`), brouillard `#bfbfbf → #c8be9a`
+  (la crème est `#ece4d4`), mer `#2a9dd6 → #6f836f`.
+  ⚠ **`brightness` à −0,03 et pas plus bas** : à −0,12 les zones sombres tombaient à `#000000`
+  et le fond perdait tout mouvement (braises dans la nuit). Assombrir sous le texte n'est pas
+  le travail de l'étalonnage mais celui de `make_grad_overlay`.
+  **Conséquence pratique : le choix du plan devient secondaire.** On prend celui dont le
+  *mouvement* plaît, l'étalonnage fait le reste — même leçon que le Poussin recadré.
+- **Génération vidéo IA en local : écartée** (recherche du 23/08). Sur M1 Max 64 Go, Wan 2.2 en
+  GGUF met **82 min pour 2 s**. LTX-2 passe sur M3/M4 via MPS mais reste très lent (MPS n'a pas
+  `torch.compile`, aucune optimisation Metal native). Constituer une banque prendrait des jours.
+  → Pour du rendu réel : **métrage filmé libre** (Pexels, Pixabay, Coverr, **Mixkit** curé,
+  **Videezy** pour les matières abstraites) + étalonnage. Les services IA en ligne à palier
+  gratuit sont écartés pour une autre raison : filigrane **et usage commercial interdit**.
 - **Musique** : 100 % générée, aucun sample, aucun enregistrement → aucun risque de réclamation.
   `pipeline/make_music.py` produit la banque (5 tonalités + un pouls). Aucune fondamentale sous
   ~65 Hz : en dessous, un haut-parleur de téléphone ne restitue rien.

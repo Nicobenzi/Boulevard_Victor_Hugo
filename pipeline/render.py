@@ -150,6 +150,43 @@ def prep_cover(src, path, tw, th, grain=2.4):
     a = np.array(im, dtype=np.float32) + np.random.default_rng(3).normal(0, grain, (th, tw, 3))
     Image.fromarray(np.clip(a,0,255).astype(np.uint8)).save(path)
 
+# ————————————————————————————————————————————————————————————————————————
+# Etalonnage du metrage de fond.
+#
+# Le metrage libre (Pexels, Mixkit, Videezy) arrive dans SA palette, pas dans la
+# notre : un feu de cheminee est orange sature, une mer est cyan. L'ancien reglage
+# (brightness=-0.06, saturation=0.92) etait trop faible pour y changer quoi que ce
+# soit — d'ou des fonds qui n'ont jamais eu l'air d'appartenir au meme film.
+#
+# Cette chaine ramene N'IMPORTE QUELLE source dans la DA, dans cet ordre :
+#   1. desaturation forte, sans aller au N&B (on garde une trace de couleur) ;
+#   2. assombrissement + contraste : le fond doit rester sous le texte ;
+#   3. virage colorimetrique — ombres vers #0e0c0a, hautes lumieres vers l'or ;
+#   4. flou : un fond net se bat avec les vers, un fond flou les porte ;
+#   5. vignette : ramene l'oeil au centre, assombrit les bords ;
+#   6. grain : c'est LUI qui unifie des sources heterogenes en une seule matiere.
+#
+# Effet recherche : le choix du plan devient secondaire. On prend celui dont le
+# MOUVEMENT plait, l'etalonnage fait le reste.
+# Pour ajuster, ne toucher qu'ici. Pour comparer avec l'avant : ETALONNAGE = "".
+# Valeurs mesurees le 23/08 sur des aplats simulant du metrage reel :
+#   braises  #ff7a1a -> #ba8d51   (l'or de la DA est #c9a45c)
+#   mer      #2a9dd6 -> #6f836f   (le cyan devient un vert-de-gris chaud)
+#   foret    #3fae52 -> #77894d
+#   brouillard #bfbfbf -> #c8be9a (la creme de la DA est #ece4d4)
+# et surtout, la matiere sombre est PRESERVEE et non ecrasee :
+#   #1a1a1a -> #0d0c02, soit exactement le fond #0e0c0a.
+# C'est la raison du brightness a -0.03 et non -0.12 : a -0.12 les braises dans la
+# nuit tombaient a #000000 et le fond perdait tout mouvement. L'assombrissement sous
+# le texte n'est pas le travail de l'etalonnage, c'est celui de make_grad_overlay.
+ETALONNAGE = (
+    "eq=brightness=-0.03:contrast=1.06:saturation=0.26:gamma=1.02,"
+    "colorbalance=rs=0.02:gs=0.00:bs=-0.04:rm=0.11:gm=0.03:bm=-0.11:rh=0.14:gh=0.06:bh=-0.12,"
+    "gblur=sigma=5,"
+    "vignette=PI/4.5,"
+    "noise=alls=7:allf=t+u"
+)
+
 def build_broll(wd, clips, total, cut=3.2):
     """
     Fond en metrage : des plans qui se relaient toutes les ~3 s, comme le fait
@@ -162,7 +199,8 @@ def build_broll(wd, clips, total, cut=3.2):
         out = os.path.join(wd, f"broll_{i}.mp4")
         sh(["ffmpeg","-v","error","-y","-i",src,
             "-vf",f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
-                  f"eq=brightness=-0.06:saturation=0.92,fps={FPS},setsar=1",
+                  + (ETALONNAGE + "," if ETALONNAGE else "")
+                  + f"fps={FPS},setsar=1",
             "-an","-c:v","libx264","-preset","veryfast","-crf","20", out])
         normes.append((out, float(sh(["ffprobe","-v","error","-show_entries","format=duration",
                                       "-of","csv=p=0", out]).stdout.strip() or 0)))

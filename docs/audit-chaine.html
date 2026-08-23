@@ -1,0 +1,334 @@
+<meta charset="utf-8">
+<title>Boulevard Victor Hugo — état de la chaîne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0e0c0a; --panel:#161311; --panel2:#1c1814;
+    --ink:#ece4d4; --dim:#a89e8c; --gold:#c9a45c; --line:#2a241d;
+    --ko:#d65454; --wait:#6b6357;
+    --serif:"Cormorant Garamond",Georgia,serif;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:52px 22px 90px}
+
+  .kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+  h1{font-family:var(--serif);font-weight:400;font-size:clamp(30px,5vw,46px);margin:0 0 10px}
+  .lede{color:var(--dim);max-width:70ch;margin:0}
+  .lede b{color:var(--ink);font-weight:500}
+
+  h2{font-family:var(--serif);font-weight:400;font-size:25px;
+     margin:54px 0 6px;padding-top:24px;border-top:1px solid var(--line)}
+  .sub{color:var(--dim);font-size:13.5px;margin:0 0 22px}
+
+  /* ————— la chaîne ————— */
+  .chain{display:flex;gap:0;align-items:stretch;overflow-x:auto;padding:6px 0 14px}
+  .step{flex:1 0 118px;min-width:118px;position:relative;padding:0 5px}
+  .dot{height:5px;border-radius:99px;background:var(--wait);margin-bottom:11px}
+  .step.ok .dot{background:var(--gold)}
+  .step.ko .dot{background:var(--ko)}
+  .num{font-size:10px;letter-spacing:.12em;color:var(--dim);margin-bottom:3px}
+  .lbl{font-size:12.5px;line-height:1.35;color:var(--dim)}
+  .step.ok .lbl{color:var(--ink)}
+  .step.ko .lbl{color:var(--ink)}
+  .tagg{display:inline-block;margin-top:7px;font-size:9.5px;letter-spacing:.1em;
+        text-transform:uppercase;padding:2px 7px;border-radius:99px;
+        border:1px solid var(--line);color:var(--dim)}
+  .step.ok .tagg{color:var(--gold);border-color:#5a4726}
+  .step.ko .tagg{color:var(--ko);border-color:#5b2f2f}
+  .step.ko::after{content:"";position:absolute;left:-1px;top:-6px;bottom:8px;width:2px;
+                  background:repeating-linear-gradient(to bottom,var(--ko) 0 5px,transparent 5px 10px)}
+
+  .legend{display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:2px}
+  .legend span{display:flex;align-items:center;gap:7px}
+  .sw{width:16px;height:4px;border-radius:99px;display:inline-block}
+
+  /* ————— jauges ————— */
+  .gauges{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));margin-top:24px}
+  .g{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:17px 18px}
+  .g h3{font-family:var(--serif);font-weight:400;font-size:19px;margin:0 0 3px}
+  .g .val{font-family:var(--serif);font-size:34px;line-height:1;margin:9px 0 4px}
+  .g .val small{font-size:15px;color:var(--dim)}
+  .bar{height:7px;border-radius:99px;background:#241f19;overflow:hidden;margin:11px 0 9px}
+  .bar i{display:block;height:100%;border-radius:99px}
+  .g p{margin:0;font-size:12.5px;color:var(--dim);line-height:1.5}
+  .crit .val{color:var(--ko)}
+  .crit .bar i{background:var(--ko)}
+  .warn .val{color:var(--gold)}
+  .warn .bar i{background:var(--gold)}
+
+  /* ————— blocages ————— */
+  .blocs{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));margin-top:22px}
+  .b{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--ko);
+     border-radius:13px;padding:16px 18px}
+  .b .n{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ko);margin-bottom:5px}
+  .b h3{font-family:var(--serif);font-weight:400;font-size:20px;margin:0 0 7px;line-height:1.25}
+  .b p{margin:0 0 8px;font-size:13.5px;color:var(--dim);line-height:1.55}
+  .b p:last-child{margin:0}
+  .b .fix{color:var(--gold);font-size:12.5px}
+  .b code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+          background:#241f19;padding:1px 5px;border-radius:4px;color:var(--ink)}
+
+  /* ————— fragilités ————— */
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
+  th{text-align:left;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+     color:var(--gold);font-weight:500;padding:0 12px 9px 0;border-bottom:1px solid var(--line)}
+  td{padding:11px 12px 11px 0;border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top}
+  td:first-child{color:var(--ink);width:33%}
+  .scroll{overflow-x:auto}
+
+  /* ————— chemin ————— */
+  .path{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:22px}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px 20px}
+  .col.mine{border-left:2px solid var(--gold)}
+  .col h3{font-family:var(--serif);font-weight:400;font-size:21px;margin:0 0 3px}
+  .col .who{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:13px}
+  ol{margin:0;padding-left:19px;color:var(--dim)}
+  ol li{margin-bottom:11px;font-size:13.5px;line-height:1.55}
+  ol b{color:var(--ink);font-weight:500}
+
+  .note{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--gold);
+        border-radius:13px;padding:19px 21px;margin-top:30px}
+  .note p{margin:0 0 9px;color:var(--dim);font-size:14px}
+  .note p:last-child{margin:0}
+  .note b{color:var(--ink);font-weight:500}
+
+  @media (max-width:640px){
+    .chain{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .step{min-width:0}
+    .step.ko::after{display:none}
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="kicker">Boulevard Victor Hugo · 23 août 2026</div>
+  <h1>Ce qui manque pour une chaîne qui tourne</h1>
+  <p class="lede">Constaté sur la base, le stockage, GitHub et Vercel — pas déduit de mémoire.
+  <b>Aucun maillon n'a jamais été parcouru en entier.</b> La base est saine et bien protégée,
+  le code compile et se déploie, mais il reste cinq blocages — dont deux invisibles tant que
+  rien n'est uploadé.</p>
+
+  <h2>La chaîne, maillon par maillon</h2>
+  <p class="sub">Deux ruptures franches : au maillon 2, parce que rien n'est uploadé ; au maillon 5,
+  parce qu'Actions refuse de démarrer.</p>
+
+  <div class="chain">
+    <div class="step ok">
+      <div class="dot"></div><div class="num">01</div>
+      <div class="lbl">Poème en base, texte de référence</div>
+      <span class="tagg">2 poèmes</span>
+    </div>
+    <div class="step ko">
+      <div class="dot"></div><div class="num">02</div>
+      <div class="lbl">Voix enregistrée, uploadée, liée</div>
+      <span class="tagg">0 asset</span>
+    </div>
+    <div class="step ko">
+      <div class="dot"></div><div class="num">03</div>
+      <div class="lbl">Tableau uploadé et lié</div>
+      <span class="tagg">0 asset</span>
+    </div>
+    <div class="step">
+      <div class="dot"></div><div class="num">04</div>
+      <div class="lbl">« Générer la vidéo » → job</div>
+      <span class="tagg">jamais</span>
+    </div>
+    <div class="step ko">
+      <div class="dot"></div><div class="num">05</div>
+      <div class="lbl">Actions exécute render.py</div>
+      <span class="tagg">quota</span>
+    </div>
+    <div class="step">
+      <div class="dot"></div><div class="num">06</div>
+      <div class="lbl">2 MP4 + 2 assets en base</div>
+      <span class="tagg">jamais</span>
+    </div>
+    <div class="step">
+      <div class="dot"></div><div class="num">07</div>
+      <div class="lbl">Publication programmée</div>
+      <span class="tagg">jamais</span>
+    </div>
+    <div class="step ko">
+      <div class="dot"></div><div class="num">08</div>
+      <div class="lbl">Caption écrite</div>
+      <span class="tagg">rien ne la crée</span>
+    </div>
+    <div class="step">
+      <div class="dot"></div><div class="num">09</div>
+      <div class="lbl">Téléchargée, postée à la main</div>
+      <span class="tagg">jamais</span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--gold)"></i> fonctionne</span>
+    <span><i class="sw" style="background:var(--ko)"></i> bloqué</span>
+    <span><i class="sw" style="background:var(--wait)"></i> jamais exercé — pas forcément cassé</span>
+  </div>
+
+  <h2>Trois plafonds, mesurés</h2>
+  <p class="sub">Les deux premiers sont déjà atteints. Le troisième dépend du rythme que tu choisis.</p>
+
+  <div class="gauges">
+    <div class="g crit">
+      <h3>Minutes GitHub Actions</h3>
+      <div class="val">3 000<small> / 3 000</small></div>
+      <div class="bar"><i style="width:100%"></i></div>
+      <p>Budget à 100 %. Six exécutions refusées avant démarrage, 4 s chacune. Vidé par un
+      <b>autre dépôt</b> depuis le 1<sup>er</sup> août — ce projet est né le 23.</p>
+    </div>
+    <div class="g crit">
+      <h3>Plafond par fichier</h3>
+      <div class="val">47,8<small> Mo / 50 Mo</small></div>
+      <div class="bar"><i style="width:96%"></i></div>
+      <p>Ton <code>hymne_musique.mp4</code> occupe <b>96 %</b> du plafond Free. Le pipeline encode
+      en <code>crf 19</code>, plus proprement que ton export manuel : il dépassera.</p>
+    </div>
+    <div class="g warn">
+      <h3>Stockage — 1 Go</h3>
+      <div class="val">12<small> jours au rythme quotidien</small></div>
+      <div class="bar"><i style="width:88%"></i></div>
+      <p>50 à 100 Mo par poème (2 vidéos + voix + tableau). À une publication par semaine :
+      ~3 mois. Et <b>rien ne purge</b> — <code>render.py</code> uploade, ne supprime jamais.</p>
+    </div>
+  </div>
+
+  <h2>Les cinq blocages</h2>
+
+  <div class="blocs">
+    <div class="b">
+      <div class="n">Blocage 1 · le premier domino</div>
+      <h3>Aucun média n'est en base</h3>
+      <p><code>select count(*) from assets</code> = <b>0</b>. Ni voix, ni tableau, ni vidéo.
+      Tes quatre vidéos montées sont sur ton Mac.</p>
+      <p>Sans asset <code>audio</code>, « Générer la vidéo » refuse de partir. Sans asset
+      <code>video</code>, l'auto-remplissage ne crée rien.</p>
+      <p class="fix">→ C'est le seul blocage que rien d'autre ne bloque. Tout attend derrière.</p>
+    </div>
+
+    <div class="b">
+      <div class="n">Blocage 2 · quota, pas panne</div>
+      <h3>GitHub Actions refuse de démarrer</h3>
+      <p>Le cron se déclenche bien, c'est GitHub qui refuse le job. Réinitialisation en début
+      de mois — donc attendre fonctionne, puis le problème revient.</p>
+      <p class="fix">→ Passer le dépôt en <b>public</b> le sort du quota définitivement.
+      Aucun secret n'est dans le code.</p>
+    </div>
+
+    <div class="b">
+      <div class="n">Blocage 3 · invisible jusqu'au premier rendu</div>
+      <h3>Le plafond de 50 Mo</h3>
+      <p>Aucune limite par bucket n'est configurée : c'est le plafond du projet Free qui
+      s'applique. L'échec surviendra <b>à l'upload</b>, après quinze minutes d'Actions consommées.</p>
+      <p class="fix">→ Baisser la qualité d'encodage, poser une limite par bucket, ou passer en Pro.</p>
+    </div>
+
+    <div class="b">
+      <div class="n">Blocage 4 · dépend du rythme</div>
+      <h3>Le stockage sature</h3>
+      <p>1 Go sur le plan Free, deux vidéos par poème, et relancer un rendu empile les fichiers
+      au lieu de les remplacer.</p>
+      <p class="fix">→ Le rythme quotidien choisi ce soir n'est pas soutenable sans purge
+      ni passage en Pro.</p>
+    </div>
+
+    <div class="b">
+      <div class="n">Blocage 5 · le goulot humain</div>
+      <h3>Aucune caption n'est générée</h3>
+      <p>Champ libre, rempli à la main, une par plateforme. Trois par semaine au rythme
+      hebdomadaire — <b>vingt et une</b> au rythme quotidien.</p>
+      <p>C'est le poste manuel qui sature avant le montage.</p>
+      <p class="fix">→ Une caption dérivée du poème : ~20 lignes.</p>
+    </div>
+  </div>
+
+  <h2>Fragilités qui ne bloquent pas encore</h2>
+
+  <div class="scroll">
+  <table>
+    <tr><th>Quoi</th><th>Pourquoi ça mordra</th></tr>
+    <tr>
+      <td>Un job mort reste bloqué à jamais</td>
+      <td><code>main()</code> ne reprend que les jobs <code>queued</code>. Un job passé à
+      <code>running</code> dont l'exécution meurt n'est jamais repris. Aggravant :
+      <code>MAX_JOBS = 3</code> × ~15 min = 45 min, pour un <code>timeout-minutes: 40</code>.</td>
+    </tr>
+    <tr>
+      <td>Whisper retéléchargé à chaque run</td>
+      <td>~500 Mo par exécution, aucun <code>actions/cache</code>. Une à deux minutes facturées
+      pour un fichier qui ne change jamais.</td>
+    </tr>
+    <tr>
+      <td>L'auto-remplissage ne lie pas la vidéo</td>
+      <td>Il sait quel poème a une vidéo — c'est sa condition d'entrée — mais laisse
+      <code>video_asset_id</code> à <code>null</code>. Écrit ce soir, incomplet.</td>
+    </tr>
+    <tr>
+      <td><code>inspirations</code> sans trigger <code>updated_at</code></td>
+      <td>Les trois autres tables l'ont. Ma migration a créé la colonne sans le déclencheur.</td>
+    </tr>
+    <tr>
+      <td>Le frère n'a pas de compte</td>
+      <td><code>allowed_emails</code> ne contient qu'une adresse. Un seul profil existe.</td>
+    </tr>
+    <tr>
+      <td>Auto-pause du plan Free</td>
+      <td>Pause après une semaine sans activité. Le cron l'éviterait — mais il ne tourne pas,
+      les jobs étant refusés avant le premier appel à l'API.</td>
+    </tr>
+  </table>
+  </div>
+
+  <h2>Le chemin le plus court vers un cycle complet</h2>
+  <p class="sub">Un seul poème suffit à tout éprouver. Prends <i>Bacchanale</i> : c'est celui dont
+  le tableau est en haute définition.</p>
+
+  <div class="path">
+    <div class="col">
+      <h3>Trois gestes</h3>
+      <div class="who">côté Nicolas</div>
+      <ol>
+        <li><b>Merger la branche</b> — 8 commits, jamais éprouvés en usage réel, après un tour
+        dans la preview.</li>
+        <li><b>Passer le dépôt en public</b> — débloque Actions tout de suite, sans attendre
+        le mois prochain.</li>
+        <li><b>Uploader une voix et un tableau</b> sur <i>Bacchanale</i> seulement.</li>
+      </ol>
+    </div>
+    <div class="col mine">
+      <h3>Trois correctifs</h3>
+      <div class="who">côté Claude</div>
+      <ol>
+        <li><b>Reprise des jobs bloqués</b>, <code>MAX_JOBS = 2</code>, cache du modèle Whisper.</li>
+        <li><b>Caption pré-remplie</b> depuis le poème — titre, auteur, premier vers, hashtags.</li>
+        <li><b>Auto-remplissage qui lie la vidéo</b>, et trigger <code>updated_at</code>
+        sur <code>inspirations</code>.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><b>Puis : « Générer la vidéo » en style cinétique, et regarder ce qui sort.</b>
+    C'est le seul test qui compte — il exerce d'un coup l'alignement Whisper, la typographie
+    cinétique, le cadrage dans le tableau, la police Cormorant, la musique liée, l'upload
+    et le calendrier.</p>
+  </div>
+
+  <div class="note">
+    <p><b>La décision qui n'est pas technique.</b> Tu as choisi un poème par jour. Trois choses
+    s'y opposent, et aucune n'est un bug.</p>
+    <p>La carte de fin de chaque vidéo dit « chaque semaine, un poème » — elle deviendrait fausse.
+    Le stockage Free sature en douze jours à ce rythme. Et ton frère fournit la voix : sept
+    lectures par semaine, contre quatre depuis le début du projet.</p>
+    <p>Le rythme quotidien est tenable techniquement, mais il demande Supabase Pro, une purge des
+    anciens fichiers, une caption générée — et surtout un débit d'enregistrement qui n'existe pas
+    encore. À trancher avant d'y investir du code.</p>
+  </div>
+
+</div>

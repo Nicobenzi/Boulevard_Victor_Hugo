@@ -43,6 +43,8 @@ export default function Poemes() {
     const mine = pubs.filter((x) => x.poem_id === p.id);
     if (!p.body?.trim()) return { label: "coller le texte", done: false };
     if (!kinds.includes("audio")) return { label: "enregistrer la voix", done: false };
+    if (!kinds.includes("broll") && !kinds.includes("image"))
+      return { label: "ajouter du métrage", done: false };
     if (!kinds.includes("video")) return { label: "générer la vidéo", done: false };
     if (mine.length === 0) return { label: "programmer", done: false };
     if (mine.some((x) => x.status !== "published")) return { label: "à publier", done: false };
@@ -160,9 +162,11 @@ export default function Poemes() {
                           <option value="">— aucune —</option>
                           {audios.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
                         </select></div>
-                      <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Tableau (optionnel)</div>
+                      <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Image de fond (optionnel)</div>
                         <select value={gen.image_asset_id} onChange={(e) => setGen({ ...gen, image_asset_id: e.target.value })}>
-                          <option value="">— fond généré —</option>
+                          <option value="">
+                            {(kindsByPoem[p.id] ?? []).includes("broll") ? "— métrage de fond —" : "— fond généré —"}
+                          </option>
                           {images.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
                         </select></div>
                       <div><div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>Direction artistique</div>

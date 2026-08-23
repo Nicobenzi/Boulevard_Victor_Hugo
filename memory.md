@@ -81,6 +81,14 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   Corollaire : l'état d'avancement d'un poème est désormais **dérivé** (body → audio → vidéo →
   publication) et affiché sur la liste Poèmes. Le champ `poems.status` reste éditable mais n'est
   plus la source de vérité — ne pas s'y fier.
+- **Veille** (23/08/2026) — table `inspirations` + onglet dédié : carnet des comptes et vidéos
+  repérés chez les autres. La nav repasse donc à 4 onglets, mais pour une **entité distincte** —
+  ce n'était pas l'erreur corrigée plus haut, qui était deux onglets pour une seule table.
+  Table nommée `inspirations` et non `references` : mot réservé en SQL.
+- **Musique** — `render.py` ignorait les assets `kind='music'` et générait toujours sa nappe.
+  Corrigé : la bande son liée au poème est utilisée si elle existe. **Lier la musique au poème
+  dans la Bibliothèque est donc le mécanisme de sélection** — il n'y a pas d'autre réglage.
+  `pipeline/make_music.py` génère la banque de nappes (5 tonalités + un pouls).
 
 ---
 

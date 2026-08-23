@@ -7,6 +7,7 @@ const tabs = [
   { href: "/publications", label: "Publications" },
   { href: "/poemes", label: "Poèmes" },
   { href: "/bibliotheque", label: "Bibliothèque" },
+  { href: "/veille", label: "Veille" },
 ];
 
 export default function Nav() {

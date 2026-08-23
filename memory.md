@@ -283,6 +283,14 @@ de maîtres (« ça fait vieux ») ni le fond actuel.
    par type et par poème, **type et poème éditables en place** (avant, se tromper de type à
    l'upload obligeait à supprimer et redéposer), compteur de stockage sur le plafond de 1 Go.
    Le dépôt ne demande plus de tout choisir à l'avance : on dépose, puis on classe.
+6. **Vrai kanban** — les six colonnes tiennent sur **une seule ligne** (288 px chacune,
+   défilement horizontal). L'empilement sur deux rangées détruisait la lecture de gauche à
+   droite, qui est tout l'intérêt d'un kanban. Page élargie de `max-w-5xl` à **`max-w-7xl`**
+   (`app/layout.tsx` + `Nav.tsx`) : à 1024 px, six colonnes n'avaient aucune chance.
+   **Le détail du poème s'ouvre en fenêtre** (880 px, 90 vh, Échap ou clic dehors), plus en
+   accordéon dans une carte de 300 px — on n'édite pas un poème dans une colonne étroite.
+   Le texte y est en Cormorant 17 px sur 16 lignes, et la fiche montre aussi les publications
+   du poème.
 
 > ⚠ **Correction d'une erreur de la spec** — il n'y a **jamais eu de hard-stop** sur le vivier
 > partagé. Vérification du schéma le 23/08 : `assets.poem_id` est **nullable**, et les seules
@@ -297,6 +305,23 @@ vocabulaire manque), lot 3 (colonne `à valider` — migration réelle, c'est un
 **Constaté le 23/08** : trois exports coexistent pour *Les Conquérants* (`cinetique`,
 `voix seule`, `avec musique`), soit ~12 Mo pour une vidéo, alors que la règle « un seul export »
 est actée. Résidus d'avant la décision — à purger, le stockage est le vrai plafond.
+
+**Demandé, pas encore livré — le kanban « permissif ».** Nicolas veut pouvoir *bouger les
+colonnes*. Deux choses très différentes se cachent derrière, et la question posée le 23/08 est
+restée sans réponse :
+
+- **Réordonner / replier / masquer les colonnes** — pure préférence d'affichage, `localStorage`,
+  aucun risque, aucune dépendance (glisser-déposer natif HTML5 suffit ; dnd-kit pèserait 30-40 ko
+  pour six colonnes et trois cartes). Livrable tel quel.
+- **Déplacer une carte d'une colonne à l'autre** — ⚠ **conflit de fond**. Dans Notion, glisser une
+  carte écrit une propriété. Ici, les colonnes sont **dérivées des faits** : un poème est
+  « À préparer » parce qu'aucun fichier voix n'est lié. Le glisser vers « Prêt à rendre »
+  demanderait d'inventer un enregistrement. Une board totalement permissive ressusciterait
+  exactement le problème de `poems.status`, saisi à la main puis dérivé, que le projet a déjà
+  résolu. Le seul déplacement qui ait un sens aujourd'hui est *À programmer → Programmé*
+  (= programmer la publication, vraie écriture) ; le lot 3 en ajoutera un avec *À valider*.
+  Si Nicolas veut vraiment forcer une carte, il faut une colonne d'override **et** un marqueur
+  visible sur les cartes forcées — donc une migration, et une décision assumée.
 
 ### À faire
 

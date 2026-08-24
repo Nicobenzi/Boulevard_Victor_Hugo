@@ -305,6 +305,14 @@ Tables : `profiles`, `allowed_emails`, `poems`, `assets`, `publications`, `rende
 Accès = allowlist `allowed_emails` + RLS `for all using (public.is_member()) with check (…)`.
 Auth = lien magique ; Site URL sur l'URL Vercel (sinon le lien renvoie vers localhost).
 
+**Python local sur le Mac** — `~/.venvs/bvh` (numpy installé), plus `ffmpeg` par Homebrew depuis
+le 24/08. macOS refuse `pip3 install` dans le Python système (PEP 668, « externally-managed
+environment ») : passer par le venv, sans l'activer — `~/.venvs/bvh/bin/python <script>`.
+C'est le seul environnement Python que le projet demande en local ; l'usine tourne sur Actions.
+⚠ `make_music.py` écrit par défaut dans `musiques/` **relatif au dossier courant**, donc dans le
+dépôt, qui est **public** et n'ignore pas ce dossier. Toujours lui passer une destination hors
+du dépôt : `~/.venvs/bvh/bin/python pipeline/make_music.py ~/Desktop/musiques-bvh 120`.
+
 **Pièges rencontrés (ne pas refaire)**
 
 - **Version de Next : rester sur le rameau courant, pas sur un rameau fermé.** Vercel refuse de
@@ -388,7 +396,7 @@ Elles sont donc **attachées côté Claude.ai**, poussées dans la session au d�
 fichier posé dans le dépôt ne peut les éteindre. **Il faut les détacher dans les réglages du
 projet côté app Claude.** Le fichier est conservé comme trace du diagnostic, pas comme remède.
 
-### Livré le 24/08 — PR #20, mergée
+### Livré le 24/08 — PR #20 et #21, mergées
 
 Reprise du projet après une semaine. Trois choses réparées, une ajoutée.
 
@@ -403,6 +411,17 @@ Reprise du projet après une semaine. Trois choses réparées, une ajoutée.
   32 px. **Règle générale à garder** : toute action qui n'existe qu'au glisser-déposer doit avoir
   son équivalent ailleurs, sinon elle n'existe pas pour qui n'a pas de souris.
 - **Contrastes corrigés** — `--line` et pastilles de plateforme, cf. l'encadré du 24/08 en § 2.
+
+**PR #21 — le montage entre dans l'Atelier** (spec `docs/specs/spec-montage-dans-atelier-2026-08-24.md`).
+Plan de fond et musique choisis dans la fiche du poème, aperçu approché, vidéo produite lisible
+sur place. Le *pourquoi* de chaque arbitrage est en § 4, pas ici.
+Réparé au passage : le bouton « supprimer » de Ressources, cassé par **deux** défauts empilés —
+`render_jobs.video_asset_id` était la seule clé étrangère vers `assets` sans clause `ON DELETE`
+(donc `NO ACTION`, donc suppression refusée), et `remove()` **avalait les deux erreurs**, si bien
+que la ligne restait sans un mot d'explication. Migration `20260824d`, et la fonction supprime
+maintenant la ligne **avant** le fichier : dans l'ordre inverse, un échec en base laissait un
+asset fantôme pointant vers un fichier disparu. **Leçon : une écriture Supabase dont on n'examine
+pas le `error` produit un bouton qui a l'air cassé.** Il y en a peut-être d'autres.
 
 ⚠ **Le bac à sable Linux ne peut pas builder** (les `node_modules` sont installés pour macOS, il
 faudrait retélécharger `@next/swc-linux-arm64-gnu`, et son disque est plein). `npx tsc --noEmit`

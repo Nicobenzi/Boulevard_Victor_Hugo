@@ -488,6 +488,11 @@ export default function Atelier() {
   parEtape.publie = parEtape.publie.slice(0, 10);
 
   const poemeOuvert = poems.find((p) => p.id === open);
+
+  // Ce qui compte comme « fond » dépend du style, parce que `render.py` en décide ainsi :
+  // seul `cinetique` lit le métrage, les deux autres veulent une image fixe. Un écran qui
+  // l'ignore laisse composer un job voué à l'échec, découvert deux heures plus tard.
+  const fondPret = gen.style === "cinetique" ? !!gen.broll_asset_id : !!gen.image_asset_id;
   const pubsOuvert = open ? pubs.filter((x) => (x.poems?.id ?? x.poem_id) === open) : [];
 
   const firstDay = (month.getDay() + 6) % 7;
@@ -908,13 +913,24 @@ export default function Atelier() {
                   </div>
                   <button className="btn2" onClick={ouvrirApercu} disabled={!gen.broll_asset_id}>Aperçu</button>
                   {/* L'invariant « pas de vidéo sans fond réel » (23/08) vit désormais ici :
-                      au moment où la décision se prend, plus trois écrans en amont. */}
-                  <button className="btn" onClick={() => launchRender(poemeOuvert)} disabled={!gen.broll_asset_id}>
+                      au moment où la décision se prend, plus trois écrans en amont.
+                      ⚠ Et il dépend du STYLE : `render.py` ne lit le métrage que sous
+                      `if style == "cinetique"`. Musée et Galerie veulent une image fixe.
+                      Sans ce contrôle, l'écran laissait composer « Musée + un plan », qui
+                      part en file puis échoue deux heures plus tard — le pire des deux. */}
+                  <button className="btn" onClick={() => launchRender(poemeOuvert)} disabled={!fondPret}>
                     Générer la vidéo
                   </button>
-                  {!gen.broll_asset_id && (
+                  {!fondPret && (
                     <span className="text-xs" style={{ color: "var(--gold)" }}>
-                      Choisis un plan de fond — le rendu ne part pas sans.
+                      {gen.style === "cinetique"
+                        ? "Choisis un plan de fond — le rendu ne part pas sans."
+                        : `${gen.style === "musee" ? "Musée" : "Galerie"} demande une image fixe liée au poème, pas du métrage. Lie une image depuis Ressources, ou repasse en Cinétique.`}
+                    </span>
+                  )}
+                  {fondPret && gen.style !== "cinetique" && gen.broll_asset_id && (
+                    <span className="text-xs" style={{ color: "var(--gold)" }}>
+                      Le plan choisi sera ignoré : seul Cinétique utilise du métrage.
                     </span>
                   )}
                 </div>

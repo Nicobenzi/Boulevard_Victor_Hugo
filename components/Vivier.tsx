@@ -39,6 +39,26 @@ const EST_SON = (k: string) => k === "music" || k === "audio";
 const COLONNES =
   "id, title, kind, poem_id, size_bytes, created_at, storage_bucket, storage_path, mime_type, meta, poems(id, title)";
 
+// La vignette seule, sans la ligne. Sert au récapitulatif du montage, dans l'Atelier : ce qui
+// est choisi doit se voir là où on l'a choisi, pas seulement dans la liste.
+export function Miniature({ a, taille = 76 }: { a: any; taille?: number }) {
+  const vig = vignetteDe(a);
+  const son = EST_SON(a?.kind);
+  return (
+    <div style={{
+      width: taille, height: Math.round((taille * 52) / 76), flex: "none",
+      borderRadius: 8, overflow: "hidden", border: "1px solid var(--line)",
+      background: son ? "var(--gold-light)" : "var(--bg)",
+      display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)",
+    }}>
+      {vig && !son
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={vig} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : <span aria-hidden style={{ fontSize: 14 }}>{son ? "♪" : "—"}</span>}
+    </div>
+  );
+}
+
 const mo = (n?: number | null) => (n ? (n / 1e6).toFixed(1) + " Mo" : "—");
 const jour = (s: string) =>
   new Date(s).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "2-digit" });

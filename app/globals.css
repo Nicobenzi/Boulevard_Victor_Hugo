@@ -7,8 +7,11 @@
    Le problème corrigé le 23/08 n'était pas la lisibilité du texte (irréprochable, AAA partout)
    mais la séparation des surfaces : cartes à 1,06 contre la page et bordures à 1,27 là où une
    limite d'interface demande 3,0. On lisait chaque mot sans voir la forme de rien.
-   Ratios de la palette ci-dessous : texte 18,1 / atténué 7,1 / or 5,9 / bordure 2,9 sur la page
-   et 3,2 sur la carte. */
+   ⚠ Corrigé le 24/08 : `--line` valait #9c8e72, soit **2,91** contre la page — au-dessous du
+   seuil de 3,0 que ce projet s'est lui-même donné, et c'est le cas le plus fréquent puisque
+   les cartes reposent sur `--bg`. Densifié à #94866a : 3,23 sur la page, 3,57 sur la carte.
+   Ratios de la palette ci-dessous : texte 18,1 / atténué 6,4 / or 5,3 sur la page et 5,9 sur
+   la carte / bordure 3,2 sur la page et 3,6 sur la carte. */
 :root {
   --bg: #f7f3ec;        /* page, crème chaud */
   --panel: #ffffff;     /* cartes, champs */
@@ -16,7 +19,7 @@
   --ink-dim: #5f574a;   /* texte secondaire */
   --gold: #7d6021;      /* l'or de la marque, densifié pour tenir sur clair */
   --gold-light: #c9a45c;/* l'or d'origine — réservé aux aplats, jamais au texte */
-  --line: #9c8e72;      /* bordures */
+  --line: #94866a;      /* bordures — ≥ 3,0 contre la page, cf. l'encadré ci-dessus */
   --danger: #a8322f;
 }
 body { background: var(--bg); color: var(--ink); }
@@ -33,3 +36,23 @@ input:focus, select:focus, textarea:focus { outline: 1px solid var(--gold); }
 .btn2:hover { color: var(--ink); border-color: var(--gold); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 .label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+
+/* Pastille de plateforme. La couleur de marque ne porte PLUS le texte : posée en texte sur
+   son propre aplat à 20 %, TikTok tombait à 1,77 pour un seuil de 4,5 (mesuré le 24/08).
+   Elle devient un point ; le texte passe en --ink. La couleur informe sans avoir à être lue —
+   même leçon que le 23/08 : on vérifie le contraste des surfaces, pas seulement du texte. */
+.pastille {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: 999px; font-size: 12px;
+  color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+}
+.pastille .point { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+
+/* Bouton-icône : 32 px minimum. Un « – » en 11 px est une cible de 8 px, intouchable au doigt
+   et difficile à viser à la souris (WCAG 2.5.8 demande 24 px). */
+.btn-icone {
+  min-width: 32px; min-height: 32px; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: 8px;
+  color: var(--ink-dim); cursor: pointer; line-height: 1;
+}
+.btn-icone:hover { color: var(--ink); background: var(--bg); }

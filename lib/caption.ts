@@ -33,6 +33,22 @@ function premierVers(body?: string | null): string {
     .find((l) => l.length > 0) ?? "";
 }
 
+// La caption effective d'une publication.
+//
+// Depuis le 24/08, la caption est d'abord une propriété du POÈME (`poems.caption`) :
+// on l'écrit en lisant le texte, sans avoir à choisir une date au préalable.
+// Ce qui est écrit à la main gagne toujours ; le gabarit n'est que le défaut.
+// Conséquence assumée : une caption écrite à la main vaut pour les trois plateformes,
+// hashtags compris — elle n'est pas complétée par les tags de plateforme, sinon on ne
+// saurait plus, en la relisant, ce qui vient de soi et ce qui vient du gabarit.
+export function captionPour(
+  poem: { title?: string | null; author?: string | null; body?: string | null; caption?: string | null },
+  platform: string
+): string {
+  const ecriteAMain = (poem.caption ?? "").trim();
+  return ecriteAMain || genererCaption(poem, platform);
+}
+
 export function genererCaption(
   poem: { title?: string | null; author?: string | null; body?: string | null },
   platform: string

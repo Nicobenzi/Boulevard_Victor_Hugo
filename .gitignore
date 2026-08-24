@@ -1,6 +1,7 @@
 node_modules/
 .next/
 next-env.d.ts
+tsconfig.tsbuildinfo
 metrage/
 # ⚠ Le dépôt est PUBLIC. `posts/` est un export de médias (~71 Mo de JPG) : à ne jamais
 # committer, sous peine de le rendre téléchargeable par n'importe qui, et durablement —

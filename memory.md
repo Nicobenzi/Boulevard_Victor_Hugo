@@ -50,6 +50,16 @@ les aplats seulement) / `--line #9c8e72` / `--danger #a8322f` (l'ancien `#d65454
 sur blanc). Ratios : texte 18,1 · atténué 7,1 · or 5,9 · bordure 2,9 page / 3,2 carte.
 Plus aucun hexadécimal en dur dans les composants — tout passe par les variables.
 
+> ⚠ **Correction du 24/08 — la leçon du 23/08 n'avait pas été appliquée jusqu'au bout.**
+> `--line` valait `#9c8e72`, soit **2,91** contre la page : au-dessous du seuil de 3,0 que ce
+> projet s'est lui-même donné, et c'est le cas dominant puisque les cartes reposent sur `--bg`.
+> Le 23/08 avait mesuré 2,9 et écrit la règle sans changer la couleur. Densifié à `#94866a` :
+> **3,23** sur la page, **3,57** sur la carte.
+> Deuxième défaut, du même genre : les pastilles de plateforme posaient la couleur de marque
+> **en texte** sur son propre aplat à 20 % — TikTok tombait à **1,77** pour un seuil de 4,5,
+> Instagram et YouTube à 3,11. La couleur est devenue un **point** ; le texte est passé en
+> `--ink` (18,1). Règle à retenir : *une couleur de marque informe, elle n'a pas à être lue.*
+
 > Le choix de fond : l'app est un **outil** ouvert en plein jour, la vidéo est le **produit**.
 > Rien n'oblige l'atelier à ressembler à ce qu'on y fabrique.
 
@@ -194,6 +204,19 @@ L'onglet « Poèmes » mentait sur le produit, et sa fiche faisait saisir des ch
   Décision : **on garde le gabarit**. Le champ caption reste éditable dans l'Atelier, donc une
   note écrite à la main peut toujours remplacer le gabarit sur un poème qui le mérite, sans
   jamais bloquer la publication. Ne pas rouvrir sans que Nicolas le demande.
+  → **24/08 : la caption devient une propriété du POÈME** (`poems.caption`, migration
+  `20260824b`). Elle n'existait que sur `publications`, donc il fallait programmer une date
+  pour avoir le droit d'écrire un texte — alors qu'une caption se pense en lisant le poème.
+  Règle de reprise, dans `captionPour()` : à la programmation, la publication prend
+  `poems.caption` si elle est renseignée, sinon le gabarit. Ce qui est écrit à la main gagne
+  toujours ; le gabarit reste le défaut, donc **la décision ci-dessus tient**.
+  Conséquence assumée : une caption écrite à la main vaut pour les trois plateformes,
+  hashtags compris — on ne lui ajoute pas les tags de plateforme, sinon on ne saurait plus en
+  la relisant ce qui vient de soi et ce qui vient du gabarit. Le bouton « régénérer » d'une
+  publication appelle `genererCaption` et non `captionPour` : régénérer veut dire *revenir au
+  gabarit*, y compris quand c'est de la caption du poème qu'on veut sortir.
+  ⚠ **Une table `captions` dédiée a été examinée et écartée** : il n'y a qu'une caption par
+  poème. On éclatera le jour où il en faudra une par plateforme, pas avant.
 
 - ⚠ **L'export Instagram du frère** (`posts/` ≈ 71 Mo de JPG, plus un `posts_1.html` de 1,8 Mo)
   a été trouvé dans le dossier du dépôt le 23/08. **Le dépôt est public.** Ignoré via
@@ -316,11 +339,27 @@ le rameau 15 est fermé et sans correctif possible), `tsconfig` réécrit par Ne
 
 **Les accès** — Charley est dans `allowed_emails` ; son profil se créera à sa première connexion
 par lien magique (déclencheur `handle_new_user`).
+→ **Ça n'a pas marché, et voici pourquoi (24/08).** `handle_new_user` ne crée un profil que si
+l'adresse est **déjà** dans `allowed_emails` **au moment de l'inscription**. Charley s'était
+connecté avant l'ajout : compte `auth.users` créé, profil jamais créé. Comme `is_member()`
+interroge `profiles` et non l'allowlist, RLS le rejetait sur toutes les tables — app vide, aucun
+message compréhensible. Réparé par la migration `20260824a` (idempotente, rejouable après chaque
+ajout à l'allowlist). ⚠ **Le trou reste ouvert** pour tout compte créé avant son allowlistage :
+le correctif de fond serait de faire retomber `is_member()` sur `allowed_emails` quand le profil
+manque. Nicolas l'a jugé inutile — Charley est le seul collaborateur prévu.
+**Leçon générale** : un déclencheur `AFTER INSERT` ne rattrape jamais les lignes déjà là. Toute
+règle « à l'inscription » a besoin de son script de rattrapage.
 
 **Les garde-fous de session** — encadré en tête de `CLAUDE.md` (ce projet n'est pas Coprovia,
 vérifier l'accès au dossier) et `.claude/settings.json` qui désactive les six plugins `coprovia-*`
-pour ce projet. ⚠ **À vérifier au démarrage de la prochaine session** : si les skills `coprovia-*`
-apparaissent quand même, c'est que Cowork ne lit pas ce fichier — le signaler à Nicolas.
+pour ce projet.
+→ ⚠ **Vérifié le 24/08 : `.claude/settings.json` ne sert à rien ici.** Les skills `coprovia-*`
+apparaissent quand même. Diagnostic : `list_plugins` ne renvoie **aucun** plugin installé
+localement, et ces skills sont servies depuis un chemin de session (`…/rpm/plugin_*/skills/`).
+Elles sont donc **attachées côté Claude.ai**, poussées dans la session au démarrage — alors que
+`enabledPlugins` est un mécanisme Claude Code qui lit la config du projet sur disque. Aucun
+fichier posé dans le dépôt ne peut les éteindre. **Il faut les détacher dans les réglages du
+projet côté app Claude.** Le fichier est conservé comme trace du diagnostic, pas comme remède.
 
 ### Le seul sujet encore ouvert : l'image
 
@@ -369,8 +408,31 @@ Nicolas ne veut ni tableaux de maîtres (« ça fait vieux ») ni le fond géné
 3. **Cache du modèle Whisper** (~500 Mo retéléchargés à chaque exécution).
 4. **Lot 3 de la refonte** : colonne `à valider`. C'est un état humain — le seul qui ne se dérive
    pas des données, comme `etape_manuelle` (§ 4).
-5. **Sortir du dépôt** ce qui n'y a pas sa place : l'export Instagram de Charley (§ 4). Le
-   `.gitignore` protège, mais un fichier ignoré reste posé au mauvais endroit.
+5. ~~**Sortir du dépôt** l'export Instagram de Charley~~ — **fait**, vérifié le 24/08 : plus
+   aucun `posts/` dans le dossier, et `git log` confirme qu'il n'a jamais été committé.
+   Le rendre de nouveau consultable est **en suspens — Nicolas tranchera plus tard.** Ne rien
+   entreprendre là-dessus sans qu'il le redemande.
+   ⚠ **Rectification du 24/08, à ne pas re-perdre** : la note du 23/08 laissait croire que
+   `.gitignore` était un pis-aller. C'est faux. `posts/` y figure, donc `git add -A` ne le voit
+   pas et il n'atteint ni l'index, ni un commit, ni GitHub — et Vercel déployant depuis le
+   dépôt git, pas depuis le disque, un fichier ignoré n'est pas déployé. Les trois cas qui
+   cassent : `git add -f` (délibéré), un `.gitignore` réécrit, et surtout **`git clean -xdf`,
+   qui ne fuite pas mais SUPPRIME** — le `-x` vise précisément les fichiers ignorés. Le vrai
+   argument pour sortir l'export du dépôt est donc la **perte**, pas la fuite.
+   Dans tous les cas : **purger l'EXIF avant tout usage** (594 géolocalisations à six
+   décimales, métadonnées d'appareil — données personnelles d'un tiers), et aucune image
+   publiée sans l'accord explicite de Charley. Me connecter le dossier n'est **pas** nécessaire
+   pour que Nicolas le consulte : le jour où une image sert de fond, il passera celle-là.
+6. **Les deux premiers poèmes** (*Bacchanale*, *Hymne à la Beauté*) n'existent qu'en texte :
+   aucun asset, ni voix ni fond, en base comme sur disque (vérifié le 24/08 — `assets` ne
+   contient que les 3 lignes des *Conquérants*). Les 8 clips Mixkit sont dans `metrage/` sur le
+   Mac mais **jamais uploadés dans Ressources**. Pour les monter, il manque les deux
+   enregistrements de voix. Visuel retenu : les Mixkit. Recollationner au passage le vers 7 de
+   *Bacchanale* (deux virgules absentes de l'édition Lemerre 1893).
+7. **`npm run build` doit tourner sur le Mac.** Le bac à sable Linux ne peut pas builder : il
+   faudrait retélécharger `@next/swc-linux-arm64-gnu` (les `node_modules` sont installés pour
+   macOS) et le disque y est plein. `npx tsc --noEmit` y fonctionne en revanche, et suffit à
+   valider le typage — mais pas le build Turbopack.
 
 ### Plafonds à surveiller
 

@@ -17,8 +17,9 @@ Lire ce fichier au début de chaque session. Le mettre à jour après toute déc
 **Boulevard Victor Hugo** — poèmes du domaine public, lus à voix haute, montés en vidéo verticale
 (1080×1920) pour Instagram / TikTok / YouTube. Signature de fin : « chaque jour, un poème ».
 
-- **Le frère de Nicolas** : la voix (choix des poèmes, enregistrement des lectures).
-  Il n'a pas encore de compte sur l'app — ne pas concevoir de fonctionnalité qui suppose sa présence.
+- **Charley, le frère de Nicolas** : la voix (choix des poèmes, enregistrement des lectures).
+  ~~Il n'a pas encore de compte sur l'app.~~ **Il en a un depuis le 24/08** (§ 6, « Les accès ») :
+  on peut donc concevoir pour deux. Premier acquis : les notes de l'Atelier (§ 4).
 - **Nicolas** : production, montage, tech, publication.
 - Projet passion à deux, coût visé = 0 €. Priorité : régularité de publication > perfection technique.
 
@@ -198,6 +199,24 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   introuvable depuis la fiche et provoquait des « ajoute d'abord une bande son » inexplicables.
 - **Veille** — table `inspirations` (et non `references`, mot réservé en SQL) + onglet dédié :
   carnet des comptes et vidéos repérés ailleurs.
+- **Notes (24/08)** — table `notes`, fil par poème pour travailler à deux en asynchrone.
+  Spec : `docs/specs/spec-notes-atelier-2026-08-24.md`. Migration `20260824g`.
+  ⚠ **`poems.notes` existait déjà et n'a JAMAIS servi** (vide sur les trois poèmes) : retiré de
+  l'écran le 23/08 parce que « la fiche faisait saisir des champs jamais relus ». Trois causes,
+  devenues les trois exigences de la nouvelle table : **auteur**, **date**, **état traité/en
+  attente** — et surtout **quelque chose qui rappelle la note**. C'est ce dernier point qui
+  compte : une note qui ne réclame rien n'est pas lue. D'où le bloc « Ce qui attend » sur
+  l'**Accueil** (premier écran ouvert, le seul qu'on ne peut pas manquer) **et** la pastille
+  sur les cartes du kanban. Ne pas réutiliser `poems.notes` en croyant simplifier.
+  Choix assumés : **aucune suppression** (on résout — un fil réécrivable perd sa valeur de
+  trace), **aucune note privée** (`is_member()` comme partout), et **une note n'est pas une
+  étape** — pas de colonne « en discussion », l'avancement reste dérivé des faits.
+  ⚠ **Piège PostgREST** : `notes` porte **deux** clés étrangères vers `profiles`
+  (`created_by`, `resolved_by`). Une jointure `profiles(...)` est ambiguë et échoue — il faut
+  nommer la contrainte : `auteur:profiles!notes_created_by_fkey(display_name)`.
+- ⚠ **La contrainte « Charley n'a pas de compte » est LEVÉE depuis le 24/08.** `memory.md` § 1
+  disait « ne pas concevoir de fonctionnalité qui suppose sa présence » : son profil existe
+  désormais. C'est ce qui rend le travail à deux possible dans l'app.
 
 ### Refonte UX du 23/08 (soir) — spec `docs/specs/spec-refonte-ux-atelier-2026-08-23.md`
 

@@ -18,6 +18,7 @@ export default function Accueil() {
   const [jobs, setJobs] = useState<Record<string, string[]>>({});
   const [err, setErr] = useState<string | null>(null);
   const [pret, setPret] = useState(false);
+  const [notes, setNotes] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -40,6 +41,16 @@ export default function Accueil() {
       const { data: pu } = await supabase.from("publications")
         .select("poem_id, status, scheduled_at").neq("status", "cancelled");
       setPubs(pu ?? []);
+
+      // Les notes en attente. C'est LA raison d'être de ce bloc : `poems.notes` n'a jamais
+      // servi parce qu'il fallait ouvrir la fiche du bon poème pour la découvrir. L'accueil
+      // est le premier écran ouvert, donc le seul qu'on ne puisse pas manquer.
+      // ⚠ Contrainte nommée explicitement : `notes` a deux clés étrangères vers `profiles`
+      // (created_by, resolved_by), et PostgREST refuse de choisir à notre place.
+      const { data: n } = await supabase.from("notes")
+        .select("id, body, created_at, poem_id, poems(title), auteur:profiles!notes_created_by_fkey(display_name)")
+        .is("resolved_at", null).order("created_at");
+      setNotes(n ?? []);
       setPret(true);
     })();
   }, []);
@@ -110,6 +121,31 @@ export default function Accueil() {
           </p>
         </div>
       </div>
+
+      {/* Ce qui attend — avant « où en est la chaîne », parce qu'une demande laissée par
+          l'autre passe avant un état de la production : elle a une personne derrière. */}
+      {notes.length > 0 && (
+        <div className="mb-8">
+          <div className="label mb-2">Ce qui attend</div>
+          <div className="grid gap-2">
+            {notes.map((n) => (
+              <Link key={n.id} href="/atelier"
+                className="card flex items-baseline gap-3 flex-wrap"
+                style={{ borderLeft: "3px solid var(--gold)" }}>
+                <span className="font-serif2 text-lg">{n.poems?.title}</span>
+                <span className="text-xs" style={{ color: "var(--ink-dim)" }}>
+                  {n.auteur?.display_name ?? "quelqu'un"} · {new Date(n.created_at)
+                    .toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                </span>
+                {/* Tronqué ici, jamais dans la fiche : l'accueil signale, il ne remplace pas. */}
+                <span className="text-sm w-full" style={{ color: "var(--ink-dim)" }}>
+                  {n.body.length > 120 ? n.body.slice(0, 120) + "…" : n.body}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="label mb-2">Où en est la chaîne</div>
       <div className="grid gap-2 mb-8">

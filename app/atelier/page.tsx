@@ -52,6 +52,11 @@ export default function Atelier() {
   const [defPlan, setDefPlan] = useState<{ w: number; h: number } | null>(null);
   const [apercu, setApercu] = useState<{ plan: string; voix: string; musique: string | null } | null>(null);
   const [videoProduite, setVideoProduite] = useState<string | null>(null);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [nouvelleNote, setNouvelleNote] = useState("");
+  // Nombre de notes NON TRAITÉES par poème, pour la pastille des cartes. Chargé avec le reste
+  // pour ne pas faire une requête par carte.
+  const [notesOuvertes, setNotesOuvertes] = useState<Record<string, number>>({});
   const [envoiVoix, setEnvoiVoix] = useState(false);
 
   const [creating, setCreating] = useState(false);
@@ -165,6 +170,11 @@ export default function Atelier() {
     const jmap: Record<string, string[]> = {};
     (j ?? []).forEach((x: any) => { if (x.poem_id) (jmap[x.poem_id] ??= []).push(x.status); });
     setJobsByPoem(jmap);
+
+    const { data: n } = await supabase.from("notes").select("poem_id").is("resolved_at", null);
+    const nmap: Record<string, number> = {};
+    (n ?? []).forEach((x: any) => { nmap[x.poem_id] = (nmap[x.poem_id] ?? 0) + 1; });
+    setNotesOuvertes(nmap);
 
     const { data: pu, error: e2 } = await supabase.from("publications")
       .select("*, poems(id, title, author, body), assets:video_asset_id(id, title, storage_bucket, storage_path)")
@@ -333,6 +343,48 @@ export default function Atelier() {
     const derniere = (a ?? []).filter((x: any) => x.kind === "video")
       .sort((x: any, y: any) => (y.created_at ?? "").localeCompare(x.created_at ?? ""))[0];
     setVideoProduite(derniere ? await urlSignee(derniere) : null);
+
+    await loadNotes(poemId);
+    setNouvelleNote("");
+  }
+
+  // ————— les notes —————
+  // Une note se résout, elle ne s'efface pas : un fil qu'on peut réécrire perd sa valeur de
+  // trace. C'est aussi ce qui distingue cette table de `poems.notes`, qui n'a jamais servi
+  // faute d'auteur, de date et d'état. Spec : docs/specs/spec-notes-atelier-2026-08-24.md
+  async function loadNotes(poemId: string) {
+    // ⚠ `notes` porte DEUX clés étrangères vers `profiles` (created_by et resolved_by) :
+    // PostgREST ne peut pas deviner laquelle joindre et renvoie une erreur d'ambiguïté.
+    // On nomme la contrainte explicitement. Ne pas « simplifier » en `profiles(...)`.
+    const { data, error } = await supabase.from("notes")
+      .select("*, auteur:profiles!notes_created_by_fkey(display_name), resolveur:profiles!notes_resolved_by_fkey(display_name)")
+      .eq("poem_id", poemId).order("created_at");
+    if (error) { setErr(error.message); return; }
+    setNotes(data ?? []);
+  }
+
+  async function ajouterNote(poemId: string) {
+    const texte = nouvelleNote.trim();
+    if (!texte) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("notes")
+      .insert({ poem_id: poemId, body: texte, created_by: user?.id });
+    if (error) { setErr(error.message); return; }
+    setNouvelleNote("");
+    flash("note envoyée ✓");
+    loadNotes(poemId); load();
+  }
+
+  // N'importe quel membre peut résoudre, y compris l'auteur : à deux, restreindre ne protège
+  // de rien. `resolved_by` garde qui a fait le geste, ce qui suffit à relire l'histoire.
+  async function basculerNote(n: any, poemId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const patch = n.resolved_at
+      ? { resolved_at: null, resolved_by: null }
+      : { resolved_at: new Date().toISOString(), resolved_by: user?.id };
+    const { error } = await supabase.from("notes").update(patch).eq("id", n.id);
+    if (error) { setErr(error.message); return; }
+    loadNotes(poemId); load();
   }
 
   // ————— l'aperçu approché —————
@@ -635,6 +687,14 @@ export default function Atelier() {
                                     )}
                                     {!forcee && manque && (
                                       <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>{manque}</div>
+                                    )}
+                                    {/* La pastille s'AJOUTE aux marqueurs, elle n'en remplace
+                                        aucun : le forçage et le « il manque » doivent rester
+                                        lisibles, c'est ce qui les empêche de mentir. */}
+                                    {(notesOuvertes[p.id] ?? 0) > 0 && (
+                                      <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>
+                                        {notesOuvertes[p.id]} note{notesOuvertes[p.id] > 1 ? "s" : ""} en attente
+                                      </div>
                                     )}
                                   </button>
                                 </div>
@@ -973,6 +1033,56 @@ export default function Atelier() {
                 ))}
               </div>
             )}
+
+            {/* ————— le fil de notes ————— */}
+            <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>
+              <div className="label mb-2">Notes</div>
+              {notes.length === 0 && (
+                <p className="text-sm mb-3" style={{ color: "var(--ink-dim)" }}>
+                  Rien encore. Une note reste visible sur l&apos;accueil tant qu&apos;elle n&apos;est pas traitée.
+                </p>
+              )}
+              <div className="grid gap-2 mb-3">
+                {notes.map((n) => {
+                  const traitee = !!n.resolved_at;
+                  return (
+                    <div key={n.id} className="rounded-lg px-3 py-2"
+                      style={{
+                        background: "var(--bg)",
+                        border: "1px solid var(--line)",
+                        // Le liseré or ne marque QUE l'attente : une note traitée n'appelle
+                        // plus rien, elle reste seulement comme trace.
+                        borderLeft: traitee ? undefined : "3px solid var(--gold)",
+                        opacity: traitee ? 0.65 : 1,
+                      }}>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="text-xs" style={{ color: "var(--ink-dim)" }}>
+                          {n.auteur?.display_name ?? "quelqu'un"} · {new Date(n.created_at)
+                            .toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        <button className="btn2 text-xs ml-auto" onClick={() => basculerNote(n, poemeOuvert.id)}>
+                          {traitee ? "rouvrir" : "traité"}
+                        </button>
+                      </div>
+                      {/* Jamais tronqué ici : c'est l'accueil qui résume, pas la fiche. */}
+                      <p className="text-sm mt-1" style={{ whiteSpace: "pre-wrap" }}>{n.body}</p>
+                      {traitee && (
+                        <p className="text-xs mt-1" style={{ color: "var(--ink-dim)" }}>
+                          traité par {n.resolveur?.display_name ?? "quelqu'un"} le {new Date(n.resolved_at)
+                            .toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <label className="label mb-1 block" htmlFor="champ-note">Laisser une note</label>
+              <textarea id="champ-note" rows={2} value={nouvelleNote} className="mb-2"
+                placeholder="« la nappe est trop douce », « il me faudrait un plan de feu »…"
+                onChange={(e) => setNouvelleNote(e.target.value)} />
+              <button className="btn2 text-xs" onClick={() => ajouterNote(poemeOuvert.id)}
+                disabled={!nouvelleNote.trim()}>Envoyer</button>
+            </div>
 
             <div className="flex gap-3 flex-wrap border-t pt-4" style={{ borderColor: "var(--line)" }}>
               <button className="btn" onClick={() => save(poemeOuvert.id)}>Enregistrer</button>

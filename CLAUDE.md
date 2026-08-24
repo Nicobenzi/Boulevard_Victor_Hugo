@@ -124,4 +124,10 @@ gh run watch <run-id>  --repo Nicobenzi/Boulevard_Victor_Hugo          # suivi (
   running »). Remède : `rm -f .git/index.lock`.
 - ⚠ **Toujours `git checkout main` AVANT de modifier des fichiers.** Une branche déjà mergée reste
   sélectionnée après un merge sur GitHub, et les commits partent dessus sans prévenir.
+- ⚠ **Tout bloc de commandes à coller commence par le `cd` absolu vers ce dépôt.** Le 24/08, un
+  bloc commençant par `npm run build` a tourné dans le dépôt **Coprovia** (l'autre projet de
+  Nicolas, ouvert dans le même terminal) : `git add` a échoué sur des chemins inexistants, le
+  `git commit` n'a donc rien commité — mais `git push` a créé la branche et `gh pr create` a
+  ouvert une PR vide sur le mauvais dépôt. Un bloc sans `cd` suppose un état de terminal qu'on
+  ne contrôle pas.
 - Python local : `~/.venvs/bvh` (macOS refuse `pip3 install` dans le Python système, PEP 668).

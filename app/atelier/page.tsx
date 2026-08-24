@@ -574,7 +574,7 @@ export default function Atelier() {
           {(["kanban", "calendrier"] as const).map((v) => (
             <button key={v} onClick={() => setVue(v)} aria-pressed={vue === v}
               className="text-xs rounded-lg px-3 py-1.5 capitalize"
-              style={{ border: `1px solid ${vue === v ? "var(--gold)" : "var(--line)"}`, color: vue === v ? "var(--ink)" : "var(--ink-dim)" }}>
+              style={{ border: `1px solid ${vue === v ? "var(--encre)" : "var(--line)"}`, color: vue === v ? "var(--ink)" : "var(--ink-dim)" }}>
               {v}
             </button>
           ))}
@@ -645,8 +645,8 @@ export default function Atelier() {
                       onDrop={() => { glisseCarte ? deposerCarte(id) : deposerColonne(id); }}
                       style={{
                         width: largeur, flex: `0 0 ${largeur}px`,
-                        background: glisseCarte ? "color-mix(in srgb, var(--gold) 5%, var(--panel))" : "var(--panel)",
-                        border: `1px solid ${glisse === id || glisseCarte ? "var(--gold)" : "var(--line)"}`,
+                        background: glisseCarte ? "color-mix(in srgb, var(--encre) 5%, var(--panel))" : "var(--panel)",
+                        border: `1px solid ${glisse === id || glisseCarte ? "var(--encre)" : "var(--line)"}`,
                         borderRadius: 12, padding: repliee ? 8 : 10,
                         opacity: glisse && glisse !== id ? 0.75 : 1,
                       }}>
@@ -783,7 +783,7 @@ export default function Atelier() {
                     </div>
                   ))}
                   {marque && dayPubs.length === 0 && (
-                    <div className="text-[11px] leading-tight" style={{ color: "var(--gold)" }} aria-hidden>+ programmer</div>
+                    <div className="text-[11px] leading-tight" style={{ color: "var(--encre)" }} aria-hidden>+ programmer</div>
                   )}
                 </button>
               );
@@ -825,7 +825,7 @@ export default function Atelier() {
                       ? <p className="text-xs" style={{ color: "var(--ink-dim)" }}>Aucune vidéo liée à ce poème.</p>
                       : picker.vids.map((v) => (
                         <button key={v.id} className="btn2 text-xs text-left"
-                          style={v.id === p.assets?.id ? { borderColor: "var(--gold)", color: "var(--ink)" } : undefined}
+                          style={v.id === p.assets?.id ? { borderColor: "var(--encre)", color: "var(--ink)" } : undefined}
                           onClick={() => chooseVideo(p.id, v.id)}>{v.title}</button>
                       ))}
                     <button className="text-xs text-left" style={{ color: "var(--ink-dim)" }} onClick={() => setPicker(null)}>annuler</button>

@@ -26,6 +26,13 @@
      jetons actifs, liens de poème, bouton Déposer — et quand tout est or, rien ne ressort.
      `--encre` prend TOUT ce qui est interactif (sélection, lecture, ambiances, filtres actifs,
      liens) ; `--gold` redevient un accent d'apparat : titres, libellés, dépôt.
+     ⚠ Le partage s'est révélé ternaire à l'application (lot 4), pas binaire — il y a un
+     TROISIÈME rôle que ni l'un ni l'autre ne couvrait : l'AVERTISSEMENT qui n'est pas une
+     erreur (« le rendu ne part pas sans fond », « horizontal : 31 % de la largeur conservée »,
+     « il manque la voix »). Il reste en `--gold`, qui se lit comme un ambre. La règle complète :
+       — `--encre`  : sélection, focus, survol, liens, jetons actifs, contrôles ;
+       — `--gold`   : titres, libellés, dépôt, et avertissements sans gravité ;
+       — `--danger` : ce qui a échoué ou ce qui est sans retour.
      Ratios mesurés : 10,2 contre --bg, 11,2 sur --panel. Très au-dessus des deux seuils.
      ⚠ Nommée `--encre` et non `--nuit` : `nuit` est déjà l'un des neuf identifiants d'ambiance
      (`lib/ambiances.ts`), deux sens pour un mot dans le même dépôt est une confusion garantie.
@@ -38,12 +45,12 @@ input, select, textarea {
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
   padding: 8px 12px; color: var(--ink); width: 100%;
 }
-input:focus, select:focus, textarea:focus { outline: 1px solid var(--gold); }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+input:focus, select:focus, textarea:focus { outline: 1px solid var(--encre); }
+:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; }
 .btn { background: var(--gold); color: var(--panel); border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn2 { border: 1px solid var(--line); color: var(--ink-dim); border-radius: 8px; padding: 7px 14px; cursor: pointer; background: var(--panel); }
-.btn2:hover { color: var(--ink); border-color: var(--gold); }
+.btn2:hover { color: var(--ink); border-color: var(--encre); }
 .btn2:disabled { opacity: .5; cursor: default; }
 .btn2:disabled:hover { color: var(--ink-dim); border-color: var(--line); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }

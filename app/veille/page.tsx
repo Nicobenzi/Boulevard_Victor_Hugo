@@ -106,12 +106,12 @@ export default function Veille() {
       {allTags.length > 0 && (
         <div className="flex gap-2 flex-wrap mb-5">
           <button onClick={() => setFilter(null)} className="text-xs rounded-full px-3 py-1"
-            style={{ border: `1px solid ${filter === null ? "var(--gold)" : "var(--line)"}`, color: filter === null ? "var(--ink)" : "var(--ink-dim)" }}>
+            style={{ border: `1px solid ${filter === null ? "var(--encre)" : "var(--line)"}`, color: filter === null ? "var(--ink)" : "var(--ink-dim)" }}>
             tout
           </button>
           {allTags.map((t) => (
             <button key={t} onClick={() => setFilter(filter === t ? null : t)} className="text-xs rounded-full px-3 py-1"
-              style={{ border: `1px solid ${filter === t ? "var(--gold)" : "var(--line)"}`, color: filter === t ? "var(--ink)" : "var(--ink-dim)" }}>
+              style={{ border: `1px solid ${filter === t ? "var(--encre)" : "var(--line)"}`, color: filter === t ? "var(--ink)" : "var(--ink-dim)" }}>
               {t}
             </button>
           ))}
@@ -122,20 +122,24 @@ export default function Veille() {
         {shown.map((it) => (
           <div key={it.id} className="card">
             <div className="flex items-center gap-3 flex-wrap mb-2">
+              {/* ⚠ Cette page portait encore le défaut corrigé ailleurs le 24/08 : la couleur de
+                  marque en TEXTE sur son propre aplat à 20 % — TikTok tombait à 1,77 pour un
+                  seuil de 4,5. `.pastille` fait de la couleur un point, et le texte reste en
+                  `--ink`. La couleur informe sans avoir à être lue. */}
               {PLATFORMS[it.platform]
-                ? <span className="px-2 py-0.5 rounded text-xs font-semibold"
-                    style={{ background: PLATFORMS[it.platform].color + "33", color: PLATFORMS[it.platform].color }}>
+                ? <span className="pastille">
+                    <span className="point" style={{ background: PLATFORMS[it.platform].color }} />
                     {PLATFORMS[it.platform].name}</span>
                 : <span className="label">autre</span>}
               {it.account && <span className="font-serif2 text-lg">{it.account}</span>}
               <a href={it.url} target="_blank" rel="noopener noreferrer" className="text-xs"
-                style={{ color: "var(--gold)" }}>ouvrir ↗</a>
+                style={{ color: "var(--encre)" }}>ouvrir ↗</a>
               <div className="ml-auto flex gap-1">
                 {RATING.map((r, i) => (
                   <button key={i} onClick={() => setRating(it, i)} title={r}
                     className="text-xs rounded px-2 py-0.5"
-                    style={{ border: `1px solid ${it.rating === i ? "var(--gold)" : "var(--line)"}`,
-                             color: it.rating === i ? "var(--gold)" : "var(--ink-dim)" }}>
+                    style={{ border: `1px solid ${it.rating === i ? "var(--encre)" : "var(--line)"}`,
+                             color: it.rating === i ? "var(--encre)" : "var(--ink-dim)" }}>
                     {r}
                   </button>
                 ))}

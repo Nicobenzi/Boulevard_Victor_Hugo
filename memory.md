@@ -138,6 +138,14 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   `pipeline/make_music.py` produit la banque (5 tonalités + un pouls). Aucune fondamentale sous
   ~65 Hz : en dessous, un haut-parleur de téléphone ne restitue rien.
 - Durées : ~1 min = idéal Reels/TikTok. Au-delà de 1 min 30, prévoir YouTube ou 2 parties.
+- ⚠ **Les enregistrements sortent du dictaphone en `Boulevard Victor Hugo N.m4a`, et le N ne
+  dit rien du poème.** Le 24/08, les deux voix ont été rattachées au mauvais poème à l'upload —
+  le fichier *sans* numéro était l'*Hymne* (1 min 50), celui portant le *3* était *Bacchanale*
+  (56 s). **Toujours vérifier par la durée avant de lier**, jamais par le nom : un texte de
+  14 vers calé sur 110 s de voix donne des sous-titres inutilisables, et l'alignement difflib
+  ne proteste pas — il retombe sur une répartition proportionnelle et sort une vidéo *plausible*
+  mais fausse. Corrigé par la migration `20260824c` (échange des `poem_id`, fichiers inchangés).
+  Renommer les fichiers au moment de l'export serait le vrai remède.
 
 ---
 
@@ -162,11 +170,30 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   table `publications` : fusionnés en un onglet **Publications** avec bascule calendrier / liste.
   Une seule requête pour les deux vues, filtrage du mois côté client. `/calendrier` et `/publier`
   restent en redirections. Onglets actuels : Publications, Poèmes, Bibliothèque, Veille.
+- ⚠ **`etapeCalculee` n'exige plus de fond depuis le 24/08.** La condition « une image ou du
+  métrage lié au poème » a été retirée, ainsi que le « aucun fond » de `manqueDe` : le fond
+  n'est plus une propriété du poème. Un poème est prêt à rendre dès qu'il a un texte et une
+  voix. **L'invariant du 23/08 — pas de vidéo sans fond réel — n'est pas abandonné, il est
+  déplacé** : le bouton « Générer » est désactivé tant qu'aucun plan n'est choisi, et
+  `render.py` échoue toujours franchement. Il s'applique là où la décision se prend, plus
+  trois écrans en amont. Ne pas le remettre dans `etapes.ts` en croyant réparer un oubli.
 - **L'avancement d'un poème est dérivé**, pas saisi : body → audio → vidéo → publication.
   Le badge de la liste Poèmes le calcule. `poems.status` reste éditable mais **n'est plus la
   source de vérité** — ne pas s'y fier, ne pas l'utiliser pour filtrer.
-- **La musique se choisit en la liant au poème** dans la Bibliothèque. `render.py` utilise la
-  bande son liée si elle existe, sinon génère sa nappe. Il n'y a pas d'autre réglage.
+- ~~**La musique se choisit en la liant au poème** dans la Bibliothèque.~~
+  → **Remplacé le 24/08 : le fond et la musique se choisissent AU MONTAGE**, dans la fiche du
+  poème (`render_jobs.broll_asset_id` et `music_asset_id`, migration `20260824e`).
+  Spec : `docs/specs/spec-montage-dans-atelier-2026-08-24.md`.
+  **Pourquoi le job et pas le poème** : écrire `assets.poem_id` à la sélection rendrait le clip
+  indisponible pour les autres poèmes, alors que le vivier partagé existe précisément pour
+  qu'un plan ressert. Effet secondaire souhaité : deux rendus du même poème peuvent avoir des
+  fonds différents — c'est ce qui permet d'essayer.
+  `render.py` lit d'abord la colonne du job, **puis retombe** sur la recherche par `poem_id`
+  (les jobs d'avant la migration passent toujours), puis sur la nappe générée pour la musique.
+  ⚠ **Un seul plan, rejoué en boucle** — décision de Nicolas. `build_broll` gère ce cas sans
+  modification : il avance une tête de lecture par segments contigus dans le clip et repart à
+  zéro une fois épuisé. Le raccord est une coupe franche ; le fondu enchaîné est une question
+  ouverte de la spec, pas un manque.
 - **Le poème lié est obligatoire** à l'upload d'une vidéo / voix / image. Un asset orphelin est
   introuvable depuis la fiche et provoquait des « ajoute d'abord une bande son » inexplicables.
 - **Veille** — table `inspirations` (et non `references`, mot réservé en SQL) + onglet dédié :

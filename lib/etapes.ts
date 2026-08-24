@@ -23,10 +23,14 @@ export type Contexte = {
 export function etapeCalculee(poem: { body?: string | null }, ctx: Contexte): EtapeId {
   if (!poem.body?.trim()) return "preparer";
   if (!ctx.kinds.includes("audio")) return "preparer";
-  // Depuis le 23/08, `render.py` n'a plus de fond de secours : sans image ni métrage lié,
-  // le rendu échoue volontairement. Autant le dire ici plutôt que de laisser partir un job
-  // qui reviendra en erreur.
-  if (!ctx.kinds.includes("image") && !ctx.kinds.includes("broll")) return "preparer";
+  // ⚠ 24/08 — la condition « une image ou du métrage lié au poème » a été RETIRÉE d'ici.
+  // Le fond n'est plus une propriété du poème mais un choix du rendu (colonne
+  // `render_jobs.broll_asset_id`), pris dans un vivier commun où un même plan ressert pour
+  // plusieurs poèmes. Un poème est donc prêt à rendre dès qu'il a un texte et une voix.
+  // L'invariant du 23/08 — *pas de vidéo sans fond réel* — n'est pas abandonné : il est tenu
+  // par le bouton « Générer », désactivé tant qu'aucun plan n'est choisi, et par le contrôle
+  // de `render.py`. Il s'applique désormais au moment où la décision se prend, pas trois
+  // écrans plus tôt. Cf. docs/specs/spec-montage-dans-atelier-2026-08-24.md
   if (ctx.jobs.some((s) => s === "queued" || s === "running")) return "rendu";
   if (!ctx.kinds.includes("video")) return "rendre";
   if (ctx.pubs.length === 0) return "programmer";
@@ -57,6 +61,7 @@ export function estForcee(poem: { body?: string | null; etape_manuelle?: string 
 export function manqueDe(poem: { body?: string | null }, ctx: Contexte): string | null {
   if (!poem.body?.trim()) return "texte manquant";
   if (!ctx.kinds.includes("audio")) return "voix manquante";
-  if (!ctx.kinds.includes("image") && !ctx.kinds.includes("broll")) return "aucun fond";
+  // « aucun fond » a disparu le 24/08 en même temps que la condition correspondante dans
+  // `etapeCalculee` : le fond se choisit au montage, il ne manque donc plus au poème.
   return null;
 }

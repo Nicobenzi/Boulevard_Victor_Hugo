@@ -396,11 +396,18 @@ def process_job(job, wd):
     sh(["ffmpeg","-v","error","-y","-ss",f"{cut:.2f}","-i",raw_audio,
         "-af","highpass=f=70,afftdn=nf=-28,loudnorm=I=-14:TP=-1.5:LRA=11",
         "-ar","48000","-ac","2",voice])
-    # Musique : si une « bande son » est liee au poeme dans la Bibliotheque, on l'utilise ;
-    # sinon on retombe sur la nappe generee. (Avant, l'asset kind='music' n'etait jamais lu.)
+    # Musique, dans cet ordre depuis le 24/08 :
+    #   1. celle choisie au montage (`job.music_asset_id`) ;
+    #   2. sinon celle liee au poeme — repli qui fait passer les jobs d'avant la migration ;
+    #   3. sinon la nappe generee.
+    # Le choix appartient au rendu et non au poeme : un meme morceau ressert pour plusieurs
+    # poemes sans etre « pris ». Cf. docs/specs/spec-montage-dans-atelier-2026-08-24.md
     pad = os.path.join(wd, "pad.wav")
-    mus = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "music") \
-            .order("created_at").limit(1).execute().data
+    if job.get("music_asset_id"):
+        mus = SB.table("assets").select("*").eq("id", job["music_asset_id"]).execute().data
+    else:
+        mus = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "music") \
+                .order("created_at").limit(1).execute().data
     if mus:
         src_mus = os.path.join(wd, "src_music")
         open(src_mus, "wb").write(SB.storage.from_(mus[0]["storage_bucket"]).download(mus[0]["storage_path"]))
@@ -416,13 +423,22 @@ def process_job(job, wd):
     style = job["style"]; pan = False
     img_path = os.path.join(wd, "art.png")
 
-    # Metrage de fond : si des plans « broll » sont lies au poeme, ils remplacent l'image fixe.
+    # Metrage de fond, dans cet ordre depuis le 24/08 :
+    #   1. le plan choisi au montage (`job.broll_asset_id`) — un seul, rejoue en boucle ;
+    #   2. sinon les plans lies au poeme — repli pour les jobs d'avant la migration.
     # Recupere AVANT le fond, parce que c'est l'une des deux sources acceptables et que le
     # controle ci-dessous doit les connaitre toutes les deux.
+    #
+    # Un seul plan ne demande aucun traitement special : `build_broll` avance une tete de
+    # lecture par segments contigus dans le clip et repart a zero quand il est epuise.
+    # C'est exactement « la meme video tout du long », a une coupe franche pres au raccord.
     brolls = []
     if style == "cinetique":
-        rows = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "broll") \
-                 .order("created_at").execute().data or []
+        if job.get("broll_asset_id"):
+            rows = SB.table("assets").select("*").eq("id", job["broll_asset_id"]).execute().data or []
+        else:
+            rows = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "broll") \
+                     .order("created_at").execute().data or []
         for i, a in enumerate(rows):
             p = os.path.join(wd, f"src_broll_{i}")
             open(p, "wb").write(SB.storage.from_(a["storage_bucket"]).download(a["storage_path"]))
@@ -436,8 +452,9 @@ def process_job(job, wd):
     # Le job passe en `error` avec ce message, visible dans l'historique de la fiche du poeme.
     if not job.get("image_asset_id") and not brolls:
         raise RuntimeError(
-            "aucun fond : lie une image ou du metrage a ce poeme avant de generer "
-            "(onglet Ressources, colonne « Poeme »)")
+            "aucun fond : choisis un plan dans « Plan de fond » sur la fiche du poeme avant "
+            "de generer. Si tu en avais choisi un, il a ete supprime des Ressources depuis "
+            "(la colonne repasse a NULL) — reprends-en un autre.")
 
     if job.get("image_asset_id"):
         ia = SB.table("assets").select("*").eq("id", job["image_asset_id"]).single().execute().data

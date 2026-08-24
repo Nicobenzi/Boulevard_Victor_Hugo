@@ -34,6 +34,8 @@ input:focus, select:focus, textarea:focus { outline: 1px solid var(--gold); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn2 { border: 1px solid var(--line); color: var(--ink-dim); border-radius: 8px; padding: 7px 14px; cursor: pointer; background: var(--panel); }
 .btn2:hover { color: var(--ink); border-color: var(--gold); }
+.btn2:disabled { opacity: .5; cursor: default; }
+.btn2:disabled:hover { color: var(--ink-dim); border-color: var(--line); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 .label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
 

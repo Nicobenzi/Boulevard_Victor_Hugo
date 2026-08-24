@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase, bucketFor, PLATFORMS, STATUS_FR } from "@/lib/supabase";
 import { ETAPES, etapeDe, etapeCalculee, estForcee, manqueDe, type EtapeId } from "@/lib/etapes";
-import { genererCaption } from "@/lib/caption";
+import { genererCaption, captionPour } from "@/lib/caption";
 
 // L'Atelier est une base de données de poèmes avec deux vues :
 // — kanban, groupé par étape (l'étape est DÉRIVÉE des données, jamais saisie) ;
@@ -45,6 +45,10 @@ export default function Atelier() {
 
   const [creating, setCreating] = useState(false);
   const [newPoem, setNewPoem] = useState<any>({});
+
+  const fenetreRef = useRef<HTMLDivElement | null>(null);
+  const titreRef = useRef<HTMLInputElement | null>(null);
+  const declencheurRef = useRef<HTMLElement | null>(null);
 
   // Disposition du kanban : préférence d'affichage pure, donc localStorage et pas la base.
   // Lue dans un effet et non à l'initialisation de l'état, sinon le HTML rendu côté serveur
@@ -122,6 +126,7 @@ export default function Atelier() {
   // calendrier
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [hover, setHover] = useState<number | null>(null);
+  const [focusJour, setFocusJour] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ poem_id: "", platform: "instagram", date: "", time: RYTHME_HEURE, caption: "" });
   const [picker, setPicker] = useState<{ pubId: string; vids: any[] } | null>(null);
@@ -159,16 +164,46 @@ export default function Atelier() {
   }
   useEffect(() => { load(); }, []);
 
-  // Échap ferme la fenêtre.
+  // Échap ferme la fenêtre, Tab y reste enfermé.
   // Volontairement sans tableau de dépendances : `fermer` lit `draft` et `poems` pour
   // détecter les modifications non enregistrées. Avec des dépendances figées, la fermeture
   // travaillerait sur une closure périmée et perdrait les modifications sans prévenir.
+  //
+  // Sans piège à focus, Tab sort de la fenêtre et parcourt le kanban resté derrière : au
+  // clavier on tape alors dans une page qu'on ne voit plus. `aria-modal` le dit aux
+  // lecteurs d'écran mais n'empêche rien — il faut l'implémenter.
   useEffect(() => {
     if (!open) return;
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") fermer(); };
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { fermer(); return; }
+      if (e.key !== "Tab") return;
+      const racine = fenetreRef.current;
+      if (!racine) return;
+      const cibles = [...racine.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter((el) => el.offsetParent !== null);
+      if (!cibles.length) return;
+      const premier = cibles[0], dernier = cibles[cibles.length - 1];
+      if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
+      else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+    };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   });
+
+  // À l'ouverture, le focus entre dans la fenêtre ; à la fermeture, il revient sur la carte
+  // d'où l'on vient. Sans ça il repart au tout début de la page à chaque aller-retour.
+  useEffect(() => {
+    if (open) { declencheurRef.current = document.activeElement as HTMLElement | null; return; }
+    declencheurRef.current?.focus?.();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Le titre plutôt que le bouton Fermer : on ouvre une fiche pour la lire, et le lecteur
+    // d'écran annonce ainsi de quel poème il s'agit.
+    titreRef.current?.focus();
+  }, [open]);
 
   function ctxDe(p: any) {
     return {
@@ -216,7 +251,7 @@ export default function Atelier() {
       for (const plat of PLATEFORMES_AUTO) {
         lignes.push({
           poem_id: poeme.id, platform: plat, scheduled_at: quand, status: "draft",
-          caption: genererCaption(poeme, plat), created_by: user?.id,
+          caption: captionPour(poeme, plat), created_by: user?.id,
         });
       }
       titres.push(`${poeme.title} — ${new Date(quand).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}`);
@@ -252,7 +287,7 @@ export default function Atelier() {
   function dirty() {
     const orig = poems.find((p) => p.id === open);
     if (!orig) return false;
-    return ["title", "author", "body"].some((k) => (draft[k] ?? "") !== (orig[k] ?? ""));
+    return ["title", "author", "body", "caption"].some((k) => (draft[k] ?? "") !== (orig[k] ?? ""));
   }
 
   function fermer() {
@@ -265,10 +300,27 @@ export default function Atelier() {
   }
 
   async function save(id: string) {
-    const { error } = await supabase.from("poems")
-      .update({ title: draft.title, author: draft.author, body: draft.body }).eq("id", id);
+    // Une caption vidée redevient NULL, pas une chaîne vide : `captionPour` teste la présence,
+    // et une chaîne vide qui traîne ferait croire à une caption écrite à la main.
+    const { error } = await supabase.from("poems").update({
+      title: draft.title, author: draft.author, body: draft.body,
+      caption: (draft.caption ?? "").trim() || null,
+    }).eq("id", id);
     if (error) { setErr(error.message); return; }
     flash("enregistré ✓"); setOpen(null); load();
+  }
+
+  // Changer l'étape depuis la fiche. C'est le chemin CLAVIER du forçage : le glisser-déposer
+  // du kanban n'existe qu'à la souris, et une fonctionnalité qui n'a pas d'équivalent au
+  // clavier n'existe pas pour qui n'en utilise pas (WCAG 2.1.1). Même règle qu'au dépôt d'une
+  // carte : choisir l'étape que le calcul donnait déjà remet `etape_manuelle` à NULL.
+  async function changerEtape(p: any, cible: EtapeId) {
+    const valeur = etapeCalculee(p, ctxDe(p)) === cible ? null : cible;
+    setPoems((L) => L.map((x) => (x.id === p.id ? { ...x, etape_manuelle: valeur } : x)));
+    setDraft((d: any) => ({ ...d, etape_manuelle: valeur }));
+    const { error } = await supabase.from("poems").update({ etape_manuelle: valeur }).eq("id", p.id);
+    if (error) { setErr(error.message); load(); return; }
+    flash(valeur ? "carte déplacée à la main" : "retour au calcul ✓");
   }
 
   async function create(e: any) {
@@ -316,7 +368,7 @@ export default function Atelier() {
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("publications").insert({
       poem_id: form.poem_id, platform: form.platform, scheduled_at,
-      caption: form.caption || (poeme ? genererCaption(poeme, form.platform) : ""),
+      caption: form.caption || (poeme ? captionPour(poeme, form.platform) : ""),
       created_by: user?.id,
     });
     if (error) { setErr(error.message); return; }
@@ -333,6 +385,9 @@ export default function Atelier() {
     load();
   }
 
+  // « Régénérer » veut dire : revenir au gabarit. On appelle donc `genererCaption` et non
+  // `captionPour` — sinon le bouton réécrirait la caption du poème par-dessus elle-même et
+  // ne servirait à rien quand c'est justement d'elle qu'on veut sortir.
   async function regenererCaption(p: any) {
     await supabase.from("publications").update({ caption: genererCaption(p.poems ?? {}, p.platform) }).eq("id", p.id);
     flash("caption régénérée ✓"); load();
@@ -387,11 +442,13 @@ export default function Atelier() {
             </button>
           ))}
         </div>
-        {saved && <span className="text-xs" style={{ color: "var(--gold)" }}>{saved}</span>}
+        {/* Les confirmations sont annoncées : elles disparaissent au bout de 2 s, donc qui ne
+            regarde pas l'écran à cet instant précis ne saura jamais si l'action a abouti. */}
+        <span className="text-xs" style={{ color: "var(--gold)" }} aria-live="polite">{saved}</span>
         <button className="btn ml-auto" onClick={() => { setCreating(!creating); setNewPoem({}); }}>+ Poème</button>
       </div>
 
-      {err && <div className="card mb-4" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
+      {err && <div role="alert" className="card mb-4" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
       {autoPropose && autoPropose.poemes.length > 0 && (
         <div className="card mb-4" style={{ borderLeft: "2px solid var(--gold)" }}>
@@ -457,7 +514,8 @@ export default function Atelier() {
                         opacity: glisse && glisse !== id ? 0.75 : 1,
                       }}>
                       {repliee ? (
-                        <button type="button" onClick={() => replier(id)} title={`Déplier ${etape.titre}`}
+                        <button type="button" onClick={() => replier(id)} aria-expanded={false}
+                          aria-label={`Déplier « ${etape.titre} » — ${liste.length} poème${liste.length > 1 ? "s" : ""}`}
                           className="w-full flex flex-col items-center gap-2 py-1">
                           <span className="text-xs" style={{ color: "var(--ink-dim)" }}>{liste.length}</span>
                           <span className="label" style={{ writingMode: "vertical-rl", letterSpacing: ".1em" }}>
@@ -467,12 +525,13 @@ export default function Atelier() {
                       ) : (
                         <>
                           <div draggable onDragStart={() => setGlisse(id)} onDragEnd={() => setGlisse(null)}
-                            className="flex items-baseline gap-2 mb-3 px-1"
+                            className="flex items-center gap-2 mb-3 px-1"
                             style={{ cursor: "grab" }} title="Glisser pour déplacer la colonne">
                             <span className="label">{etape.titre}</span>
                             <span className="text-xs" style={{ color: "var(--ink-dim)" }}>{liste.length}</span>
-                            <button type="button" onClick={() => replier(id)} title="Replier"
-                              className="ml-auto text-xs" style={{ color: "var(--ink-dim)" }}>–</button>
+                            <button type="button" onClick={() => replier(id)} aria-expanded
+                              aria-label={`Replier « ${etape.titre} »`}
+                              className="ml-auto btn-icone">–</button>
                           </div>
                           <div className="grid gap-2">
                             {liste.map((p) => {
@@ -551,27 +610,37 @@ export default function Atelier() {
             {["lun", "mar", "mer", "jeu", "ven", "sam", "dim"].map((d) => <div key={d} className="p-2">{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden mb-10" style={{ background: "var(--line)", border: "1px solid var(--line)" }}>
+            {/* Chaque jour est un vrai bouton. En div avec onClick, la seule façon de programmer
+                depuis le calendrier était de cliquer : rien au clavier, et l'invite
+                « + programmer » n'apparaissait qu'au survol — donc jamais sur un écran tactile.
+                Elle est maintenant affichée dès que le jour a le focus. */}
             {cells.map((day, i) => {
-              const dayPubs = day ? monthPubs.filter((p) => new Date(p.scheduled_at).getDate() === day) : [];
-              const iso = day ? jourISO(new Date(month.getFullYear(), month.getMonth(), day)) : "";
-              const survol = day === hover;
+              if (!day) return <div key={i} className="min-h-24" style={{ background: "var(--panel)" }} />;
+              const dayPubs = monthPubs.filter((p) => new Date(p.scheduled_at).getDate() === day);
+              const iso = jourISO(new Date(month.getFullYear(), month.getMonth(), day));
+              const marque = day === hover || day === focusJour;
+              const dateLisible = new Date(month.getFullYear(), month.getMonth(), day)
+                .toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
               return (
-                <div key={i} className="min-h-24 p-1.5"
-                  style={{ background: survol ? "var(--bg)" : "var(--panel)", cursor: day ? "pointer" : "default" }}
-                  onMouseEnter={() => day && setHover(day)} onMouseLeave={() => setHover(null)}
-                  onClick={() => { if (!day) return; setForm({ ...form, date: iso }); setShowForm(true); }}>
-                  {day && <div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>{day}</div>}
+                <button key={i} type="button" className="min-h-24 p-1.5 text-left block w-full"
+                  style={{ background: marque ? "var(--bg)" : "var(--panel)" }}
+                  aria-label={dayPubs.length
+                    ? `${dateLisible} — ${dayPubs.length} publication${dayPubs.length > 1 ? "s" : ""} : ${dayPubs.map((p) => `${PLATFORMS[p.platform].name}, ${p.poems?.title}, ${STATUS_FR[p.status]}`).join(" ; ")}`
+                    : `${dateLisible} — libre, programmer une publication`}
+                  onMouseEnter={() => setHover(day)} onMouseLeave={() => setHover(null)}
+                  onFocus={() => setFocusJour(day)} onBlur={() => setFocusJour(null)}
+                  onClick={() => { setForm({ ...form, date: iso }); setShowForm(true); }}>
+                  <div className="text-xs mb-1" style={{ color: "var(--ink-dim)" }}>{day}</div>
                   {dayPubs.map((p) => (
-                    <div key={p.id} className="block w-full text-left rounded px-1.5 py-0.5 mb-1 text-[10px] leading-tight"
-                      style={{ background: PLATFORMS[p.platform].color + (p.status === "published" ? "55" : "22"), color: "var(--ink)", borderLeft: `2px solid ${PLATFORMS[p.platform].color}` }}
-                      title={`${p.poems?.title} — ${STATUS_FR[p.status]}`}>
+                    <div key={p.id} className="rounded px-1.5 py-0.5 mb-1 text-[11px] leading-tight"
+                      style={{ background: PLATFORMS[p.platform].color + (p.status === "published" ? "55" : "22"), color: "var(--ink)", borderLeft: `3px solid ${PLATFORMS[p.platform].color}` }}>
                       {PLATFORMS[p.platform].short} · {p.poems?.title}
                     </div>
                   ))}
-                  {survol && dayPubs.length === 0 && (
-                    <div className="text-[10px] leading-tight" style={{ color: "var(--gold)" }}>+ programmer</div>
+                  {marque && dayPubs.length === 0 && (
+                    <div className="text-[11px] leading-tight" style={{ color: "var(--gold)" }} aria-hidden>+ programmer</div>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -581,7 +650,10 @@ export default function Atelier() {
             {upcoming.map((p) => (
               <div key={p.id} className="card">
                 <div className="flex items-center gap-3 flex-wrap mb-3">
-                  <span className="px-2 py-0.5 rounded text-xs font-semibold" style={{ background: PLATFORMS[p.platform].color + "33", color: PLATFORMS[p.platform].color }}>{PLATFORMS[p.platform].name}</span>
+                  <span className="pastille">
+                    <span className="point" style={{ background: PLATFORMS[p.platform].color }} />
+                    {PLATFORMS[p.platform].name}
+                  </span>
                   <span className="font-serif2 text-xl">{p.poems?.title}</span>
                   <span style={{ color: "var(--ink-dim)" }}>{p.poems?.author}</span>
                   <span className="ml-auto text-sm" style={{ color: "var(--ink-dim)" }}>
@@ -630,14 +702,27 @@ export default function Atelier() {
             alignItems: "flex-start", justifyContent: "center", padding: "5vh 16px",
             background: "color-mix(in srgb, var(--ink) 45%, transparent)",
           }}>
-          <div onClick={(e) => e.stopPropagation()}
+          <div ref={fenetreRef} onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%", maxWidth: 880, maxHeight: "90vh", overflowY: "auto",
               background: "var(--panel)", border: "1px solid var(--line)", borderRadius: 16,
               padding: 24,
             }}>
             <div className="flex items-center gap-3 mb-5 flex-wrap">
-              <span className="label">{ETAPES.find((e) => e.id === etapeDe(poemeOuvert, ctxDe(poemeOuvert)))?.titre}</span>
+              {/* Le sélecteur d'étape est le pendant clavier du glisser-déposer. Il porte la
+                  même règle : choisir l'étape calculée revient au calcul. */}
+              <label className="flex items-center gap-2">
+                <span className="label">Étape</span>
+                <select style={{ width: "auto" }}
+                  value={etapeDe(poemeOuvert, ctxDe(poemeOuvert))}
+                  onChange={(e) => changerEtape(poemeOuvert, e.target.value as EtapeId)}>
+                  {ETAPES.map((et) => (
+                    <option key={et.id} value={et.id}>
+                      {et.titre}{et.id === etapeCalculee(poemeOuvert, ctxDe(poemeOuvert)) ? " (calculée)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               {/* L'étape calculée reste toujours lisible : c'est ce qui empêche le forçage
                   de devenir un mensonge silencieux. */}
               {estForcee(poemeOuvert, ctxDe(poemeOuvert)) && (
@@ -654,17 +739,39 @@ export default function Atelier() {
               <button className="btn2 text-xs ml-auto" onClick={fermer}>Fermer ✕</button>
             </div>
 
-            <input className="mb-3" value={draft.title ?? ""} placeholder="Titre"
+            <input ref={titreRef} className="mb-3" value={draft.title ?? ""} placeholder="Titre" aria-label="Titre du poème"
               style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: 28, border: "none", background: "transparent", padding: 0 }}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
-            <input className="mb-4" value={draft.author ?? ""} placeholder="Auteur"
+            <input className="mb-4" value={draft.author ?? ""} placeholder="Auteur" aria-label="Auteur"
               style={{ border: "none", background: "transparent", padding: 0, color: "var(--ink-dim)" }}
               onChange={(e) => setDraft({ ...draft, author: e.target.value })} />
 
-            <div className="label mb-1">Texte — un vers par ligne, il sert aux sous-titres</div>
-            <textarea rows={16} className="mb-4" value={draft.body ?? ""}
+            <label className="label mb-1 block" htmlFor="champ-texte">Texte — un vers par ligne, il sert aux sous-titres</label>
+            <textarea id="champ-texte" rows={16} className="mb-4" value={draft.body ?? ""}
               style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: 17, lineHeight: 1.6 }}
               onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+
+            {/* La caption vit ici depuis le 24/08, et non plus seulement sur la publication :
+                elle se pense en lisant le poème, pas en choisissant un créneau. */}
+            <label className="label mb-1 block" htmlFor="champ-caption">Caption</label>
+            <textarea id="champ-caption" rows={5} className="mb-1" value={draft.caption ?? ""}
+              placeholder={poemeOuvert ? genererCaption(poemeOuvert, "instagram") : ""}
+              onChange={(e) => setDraft({ ...draft, caption: e.target.value })} />
+            <div className="flex gap-3 items-center flex-wrap mb-4">
+              <button type="button" className="btn2 text-xs"
+                onClick={() => setDraft({ ...draft, caption: genererCaption(poemeOuvert, "instagram") })}>
+                partir du gabarit
+              </button>
+              {(draft.caption ?? "").trim() && (
+                <button type="button" className="btn2 text-xs"
+                  onClick={() => setDraft({ ...draft, caption: "" })}>revenir au gabarit</button>
+              )}
+              <span className="text-xs" style={{ color: "var(--ink-dim)" }}>
+                {(draft.caption ?? "").trim()
+                  ? "Écrite à la main : elle sera reprise telle quelle sur les trois plateformes, hashtags compris."
+                  : "Vide : le gabarit s'applique, avec les hashtags propres à chaque plateforme."}
+              </span>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2 mb-4">
               <div>
@@ -739,7 +846,10 @@ export default function Atelier() {
                 <div className="label mb-2">Publications</div>
                 {pubsOuvert.map((p) => (
                   <div key={p.id} className="flex gap-3 items-center text-sm py-1 flex-wrap">
-                    <span className="text-xs" style={{ color: PLATFORMS[p.platform].color }}>{PLATFORMS[p.platform].name}</span>
+                    <span className="pastille">
+                      <span className="point" style={{ background: PLATFORMS[p.platform].color }} />
+                      {PLATFORMS[p.platform].name}
+                    </span>
                     <span style={{ color: "var(--ink-dim)" }}>
                       {new Date(p.scheduled_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
                     </span>

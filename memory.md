@@ -1,5 +1,7 @@
 # memory.md — mémoire du projet
-Dernière consolidation : 23 août 2026 (soir — refonte UX, Next 16, palette claire)
+Dernière consolidation : 23 août 2026, fin de soirée — 15 PR mergées.
+Structure : §1 le projet · §2 la DA · §3 le montage · §4 les décisions et leur *pourquoi* ·
+§5 l'infrastructure et les pièges · §6 l'état, ce qui reste, ce qui est ouvert.
 
 Lire ce fichier au début de chaque session. Le mettre à jour après toute décision structurante.
 
@@ -280,157 +282,100 @@ Auth = lien magique ; Site URL sur l'URL Vercel (sinon le lien renvoie vers loca
 - **GitHub arrondit chaque job à la minute pleine** : une exécution à vide de 4 s coûte 1 minute.
 
 ---
-
-## 6. État au 23 août 2026 (soir)
+## 6. État au 23 août 2026 (fin de soirée)
 
 ### La chaîne tourne
 
-Premier rendu réussi le 23/08 à 15 h 06, sur *Les Conquérants*, style `cinetique`.
-**3 minutes** par vidéo, pas les 15 estimées. Le workflow passe au vert, `render.py` produit
-le MP4, l'uploade et crée l'asset. Les trois blocages de la journée sont levés :
+Premier rendu réussi le 23/08 à 15 h 06 sur *Les Conquérants*, style `cinetique` : **3 minutes**
+par vidéo, pas les 15 estimées. Les trois blocages de la journée sont levés :
 
-- **Quota Actions** → dépôt passé en **public**, Actions y est gratuit et illimité, hors quota.
+- **Quota Actions** → dépôt passé en **public** (Actions y est gratuit et illimité, hors quota).
   Historique vérifié avant bascule : aucun secret n'a jamais été committé.
-- **`SUPABASE_SERVICE_ROLE_KEY` n'existait pas.** Découvert à la première exécution réelle,
-  masqué jusque-là par le quota. Posé depuis. Deux garde-fous ajoutés pour que ça ne puisse plus
-  passer inaperçu : le workflow refuse de démarrer si un secret est vide, et vérifie que la
-  réponse Supabase est bien une **liste** (avec un secret manquant, PostgREST renvoie un objet
-  d'erreur dont `len()` compte les clés → le workflow croyait avoir 3 jobs et déroulait tout).
-  `render.py` contrôle aussi ses variables d'env en tête de fichier : `os.environ["X"]` ne lève
-  rien pour une variable **vide**.
+- **`SUPABASE_SERVICE_ROLE_KEY` n'existait pas**, masqué jusque-là par le quota. Posé depuis, avec
+  deux garde-fous : le workflow refuse de démarrer si un secret est vide, et vérifie que la réponse
+  Supabase est bien une **liste** (avec un secret manquant, PostgREST renvoie un objet d'erreur dont
+  `len()` compte les clés → le workflow croyait avoir 3 jobs). `render.py` contrôle ses variables
+  d'env en tête de fichier : `os.environ["X"]` ne lève rien pour une variable **vide**.
 - **`render_jobs_style_check` n'autorisait que `musee` et `galerie`** : la base rejetait tout job
-  en `cinetique`. Corrigé par la migration `20260823b`, qui ajoute aussi le type d'asset `broll`
-  et le trigger `updated_at` manquant sur `inspirations`.
+  `cinetique`. Corrigé par la migration `20260823b`.
 
-### Ce qui reste ouvert sur l'image
+### Livré le 23/08 au soir — 15 PR, toutes mergées
 
-C'est le seul sujet non tranché, et il occupe la fin de la journée. Nicolas ne veut ni tableaux
-de maîtres (« ça fait vieux ») ni le fond actuel.
+**L'app** — refonte UX complète (spec `docs/specs/spec-refonte-ux-atelier-2026-08-23.md`) :
+nav à 4 onglets, Publications fusionné dans l'Atelier, fiche à 4 champs, caption générée, accueil
+« tenue du rythme ». Puis palette claire, Ressources en base de données, vrai kanban sur une ligne
+avec détail en fenêtre, colonnes déplaçables, forçage des cartes, vocabulaire d'ambiances.
+Le détail de chaque décision et de son *pourquoi* est en **§ 4**, pas ici.
 
-- **`painterly_bg` est le coupable, pas la génération.** Il produit une grosse tache pâle et
-  jaune, centrée, qui se bat avec le texte. D'autres fonds **générés exactement pareil**
-  fonctionnent très bien. Ne pas conclure « il faut du filmé » : il faut un meilleur générateur.
-- **Le candidat retenu (« E »)** : nébuleuse de braise + champ d'étoiles, **animé** (bruit 3D
-  dont la 3ᵉ dimension est le temps, interpolé entre tranches), semé sur l'identifiant du poème.
-  Sombre, dans la palette, avec de grandes zones calmes pour le texte. À substituer à `painterly_bg`.
-- **Portraits d'auteur : pas en fond.** Testé sur la gravure de Heredia. Le traitement serré en
-  noir et blanc dur + grain est visuellement très fort — mais un portrait remplit le cadre de
-  détail partout et n'a **aucune zone calme** : les vers y sont illisibles. La bonne place est la
-  **carte d'ouverture** (titre + auteur, premières secondes), là où un regard retient mieux
-  qu'une texture. Puis le poème se déroule sur la matière et le noir.
-- **Banque d'images partagée** — idée de Nicolas, à implémenter. Aujourd'hui un `broll` doit être
-  lié à un poème, donc aucune mutualisation possible. Prévu : autoriser un `broll` sans poème,
-  et faire piocher `render.py` dans ce vivier (tirage semé sur l'identifiant du poème).
-  Ordre de priorité : plans propres au poème → banque partagée → fond généré.
-- **Pexels : attention aux résultats sponsorisés.** Des vignettes iStock **payantes** sont
-  mélangées aux résultats gratuits. Règle : si l'URL quitte `pexels.com`, c'est payant.
-  Licence Pexels/Pixabay : commercial, sans attribution — mais aucune autorisation des personnes
-  filmées n'est garantie, donc **pas de visages identifiables**.
-- Veille 2026 : la typographie animée est devenue un style visuel à part entière (« le texte est
-  le personnage principal »), et le grain argentique revient contre le rendu numérique trop propre.
+**Le socle** — **Next 16** (les 3 CVE `high` postcss/sharp éteintes, `found 0 vulnerabilities` ;
+le rameau 15 est fermé et sans correctif possible), `tsconfig` réécrit par Next 16 et commité,
+`package-lock.json` désormais suivi, `next-env.d.ts` ignoré.
 
-### Livré le 23/08 au soir (4 PR, toutes mergées)
+**Le pipeline** — étalonnage du métrage (§ 3), repêchage des jobs bloqués, `MAX_JOBS = 2`.
 
-1. **Refonte UX lot 1** — nav à 4 onglets, Publications fusionné dans l'Atelier, fiche à 4 champs,
-   caption générée, accueil « tenue du rythme ». Spec : `docs/specs/spec-refonte-ux-atelier-2026-08-23.md`.
-2. **Next 16** — les 3 CVE `high` (postcss, sharp) éteintes, `found 0 vulnerabilities`.
-3. **tsconfig** réécrit par Next 16, commité ; `next-env.d.ts` ignoré ; `package-lock.json` suivi.
-4. **Palette claire** — un seul thème, bordures remontées de 1,27 à 2,91.
+**Les accès** — Charley est dans `allowed_emails` ; son profil se créera à sa première connexion
+par lien magique (déclencheur `handle_new_user`).
 
-5. **Ressources refondue en base de données** (style Notion) — table triable, recherche, filtres
-   par type et par poème, **type et poème éditables en place** (avant, se tromper de type à
-   l'upload obligeait à supprimer et redéposer), compteur de stockage sur le plafond de 1 Go.
-   Le dépôt ne demande plus de tout choisir à l'avance : on dépose, puis on classe.
-6. **Vrai kanban** — les six colonnes tiennent sur **une seule ligne** (288 px chacune,
-   défilement horizontal). L'empilement sur deux rangées détruisait la lecture de gauche à
-   droite, qui est tout l'intérêt d'un kanban. Page élargie de `max-w-5xl` à **`max-w-7xl`**
-   (`app/layout.tsx` + `Nav.tsx`) : à 1024 px, six colonnes n'avaient aucune chance.
-   **Le détail du poème s'ouvre en fenêtre** (880 px, 90 vh, Échap ou clic dehors), plus en
-   accordéon dans une carte de 300 px — on n'édite pas un poème dans une colonne étroite.
-   Le texte y est en Cormorant 17 px sur 16 lignes, et la fiche montre aussi les publications
-   du poème.
+**Les garde-fous de session** — encadré en tête de `CLAUDE.md` (ce projet n'est pas Coprovia,
+vérifier l'accès au dossier) et `.claude/settings.json` qui désactive les six plugins `coprovia-*`
+pour ce projet. ⚠ **À vérifier au démarrage de la prochaine session** : si les skills `coprovia-*`
+apparaissent quand même, c'est que Cowork ne lit pas ce fichier — le signaler à Nicolas.
 
-> ⚠ **Correction d'une erreur de la spec** — il n'y a **jamais eu de hard-stop** sur le vivier
-> partagé. Vérification du schéma le 23/08 : `assets.poem_id` est **nullable**, et les seules
-> contraintes sont la PK, les deux FK et `assets_kind_check`. L'obligation « poème lié » n'existait
-> que dans le composant. De même, `assets.meta` est un `jsonb NOT NULL DEFAULT '{}'` déjà en place :
-> les ambiances peuvent y vivre sans migration. **Leçon : lire le schéma avant d'annoncer une
-> migration.** Le lot 2 n'est plus bloqué que par le vocabulaire d'ambiance, qui dépend de Nicolas.
+### Le seul sujet encore ouvert : l'image
 
-7. **Lot 2 livré — le vivier a son vocabulaire.** Les 9 ambiances sont figées dans
-   `lib/ambiances.ts` : `nuit braise orage vertige melancolie tendresse apre solennel vide`.
-   Identifiants sans accents (un mot-clé accentué se tape et se compare mal), libellés accentués
-   à l'affichage. Rangées dans `assets.meta.ambiances` — **aucune migration**. Dans Ressources :
-   filtre par ambiance (cumulatif en OU : on cherche « sombre OU âpre », pas les deux à la fois)
-   et édition en place sur chaque ligne. Un compteur signale les ressources du vivier sans
-   ambiance, invisibles aux filtres.
-   ⚠ **Ne pas étendre le vocabulaire sans décision explicite** : une liste qui grossit au fil de
-   l'eau redevient du texte libre, et le filtre ne filtre plus rien.
+Nicolas ne veut ni tableaux de maîtres (« ça fait vieux ») ni le fond généré actuel.
 
-**Reste de la refonte** : lot 3 (colonne `à valider` — migration réelle, c'est un état humain,
-le seul qui ne se dérive pas des données).
-
-**Premier vivier constitué le 23/08** : 8 clips Mixkit dans `metrage/` (hors git), nommés
-`<ambiance>-<sujet>-<idMixkit>.mp4`, provenance et licence dans `metrage/SOURCES.md`.
-⚠ Sept sont en 1280×720 (« HD ready ») : recadrés en 9:16 ils ne gardent que **31 % de la
-largeur** et sont agrandis **2,7×**. Les deux clips nativement verticaux (720×1280) n'ont ce
-problème qu'à 1,5× et gardent tout le cadre. **Règle : chercher d'abord un clip vertical**,
-sinon la plus haute résolution proposée sur la page — jamais « HD ready » par défaut.
-
-**Constaté le 23/08** : trois exports coexistent pour *Les Conquérants* (`cinetique`,
-`voix seule`, `avec musique`), soit ~12 Mo pour une vidéo, alors que la règle « un seul export »
-est actée. Résidus d'avant la décision — à purger, le stockage est le vrai plafond.
-
-**Demandé, pas encore livré — le kanban « permissif ».** Nicolas veut pouvoir *bouger les
-colonnes*. Deux choses très différentes se cachent derrière, et la question posée le 23/08 est
-restée sans réponse :
-
-- **Réordonner / replier / masquer les colonnes** — pure préférence d'affichage, `localStorage`,
-  aucun risque, aucune dépendance (glisser-déposer natif HTML5 suffit ; dnd-kit pèserait 30-40 ko
-  pour six colonnes et trois cartes). Livrable tel quel.
-- **Déplacer une carte d'une colonne à l'autre** — ⚠ **conflit de fond**. Dans Notion, glisser une
-  carte écrit une propriété. Ici, les colonnes sont **dérivées des faits** : un poème est
-  « À préparer » parce qu'aucun fichier voix n'est lié. Le glisser vers « Prêt à rendre »
-  demanderait d'inventer un enregistrement. Une board totalement permissive ressusciterait
-  exactement le problème de `poems.status`, saisi à la main puis dérivé, que le projet a déjà
-  résolu. Le seul déplacement qui ait un sens aujourd'hui est *À programmer → Programmé*
-  (= programmer la publication, vraie écriture) ; le lot 3 en ajoutera un avec *À valider*.
-  Si Nicolas veut vraiment forcer une carte, il faut une colonne d'override **et** un marqueur
-  visible sur les cartes forcées — donc une migration, et une décision assumée.
+- **`painterly_bg` est le coupable, pas la génération.** Il produit une grosse tache pâle et jaune,
+  centrée, qui se bat avec le texte. D'autres fonds **générés exactement pareil** fonctionnent très
+  bien. Ne pas conclure « il faut du filmé » : il faut un meilleur générateur.
+- **Le candidat retenu (« E »)** : nébuleuse de braise + champ d'étoiles, **animé** (bruit 3D dont
+  la 3ᵉ dimension est le temps), semé sur l'identifiant du poème. Sombre, dans la palette, avec de
+  grandes zones calmes. À substituer à `painterly_bg`.
+- **Portraits d'auteur : pas en fond.** Testé sur la gravure de Heredia — un portrait remplit le
+  cadre de détail et n'a **aucune zone calme**, les vers y sont illisibles. Sa place est la **carte
+  d'ouverture** (titre + auteur), là où un regard retient mieux qu'une texture.
+- **Le métrage filmé est désormais viable** grâce à l'étalonnage (§ 3) : le choix du plan devient
+  secondaire, on prend celui dont le *mouvement* plaît. Premier vivier : 8 clips Mixkit dans
+  `metrage/` (hors git), nommés `<ambiance>-<sujet>-<idMixkit>.mp4`, licence et provenance dans
+  `metrage/SOURCES.md`.
+- **Génération vidéo par IA : écartée** (§ 3). Filmé libre + étalonnage, ou fond généré maison.
+- **Sources libres — deux pièges.** Sur Pexels, des vignettes iStock **payantes** sont mêlées aux
+  résultats gratuits : si l'URL quitte `pexels.com`, c'est payant. Et sur toutes ces banques,
+  aucune autorisation des personnes filmées n'est garantie → **pas de visages identifiables**.
+  ⚠ Mixkit interdit explicitement le téléchargement automatisé (User Terms 9.10) : on télécharge
+  à la main, ce qui est de toute façon plus rapide que de câbler un outil.
+- Veille 2026 : la typographie animée est devenue un style à part entière (« le texte est le
+  personnage principal »), et le grain argentique revient contre le rendu numérique trop propre.
 
 ### À faire
 
-1. Remplacer `painterly_bg` par le générateur « E » (nébuleuse animée).
-2. Carte d'ouverture avec portrait d'auteur traité en N&B dur.
-3. Banque de métrage partagée (`broll` sans poème lié). ⚠ Le **tirage semé est écarté** pour le
-   choix d'une ressource (cf. refonte UX du 23/08) : la sélection reste manuelle et assistée.
-   Le tirage ne subsiste que comme **repli** quand rien n'est lié. Devient le **lot 2**.
-4. **Caption générée** depuis le poème — rien ne la produit, et c'est 3 captions par publication
-   à écrire à la main. Le poste manuel qui saturera en premier.
-   → Tranché le 23/08 : **gabarit déterministe, sans LLM**. Fait partie du **lot 1** de la refonte UX.
-5. **Reprise des jobs bloqués** : `main()` ne reprend que les `queued`. Un job mort reste
-   `running` à jamais. Prévoir un repêchage après 1 h, et `MAX_JOBS = 2` (3 × ~3 min tient dans
-   les 40 min, mais la marge est faible si un rendu est long).
-6. Cache du modèle Whisper (~500 Mo retéléchargés à chaque exécution).
-7. Ajouter l'email du frère dans `allowed_emails`.
+1. **Remplacer `painterly_bg` par le générateur « E »** (nébuleuse animée). Le plus structurant.
+2. **Carte d'ouverture** avec portrait d'auteur traité en N&B dur.
+3. **Purger les exports en double** : trois fichiers coexistent pour *Les Conquérants*
+   (`cinetique`, `voix seule`, `avec musique`) ≈ 12 Mo, alors que la règle « un seul export » est
+   actée. Résidus d'avant la décision.
+4. **Cache du modèle Whisper** (~500 Mo retéléchargés à chaque exécution).
+5. **Lot 3 de la refonte** : colonne `à valider`. C'est un état humain — le seul qui ne se dérive
+   pas des données, comme `etape_manuelle` (§ 4).
+6. **Sortir du dépôt** ce qui n'y a pas sa place : l'export Instagram de Charley (§ 4). Le
+   `.gitignore` protège, mais un fichier ignoré reste posé au mauvais endroit.
 
 ### Plafonds à surveiller
 
-- **50 Mo par fichier** (plan Free). Une vidéo de 56 s pèse ~4 Mo en `cinetique`, donc large —
-  mais l'ancien export manuel de l'*Hymne* (1 min 47) faisait 47,8 Mo. Surveiller les poèmes longs.
-- **1 Go de stockage.** Un seul export désormais (la voix seule est supprimée), ce qui double
-  l'autonomie. Rien ne purge : `render.py` uploade et n'efface jamais.
+- **50 Mo par fichier** (plan Free). Une vidéo de 56 s pèse ~4 Mo en `cinetique`, donc large — mais
+  l'ancien export manuel de l'*Hymne* (1 min 47) faisait 47,8 Mo. Surveiller les poèmes longs.
+- **1 Go de stockage.** Un seul export désormais, ce qui double l'autonomie. **Rien ne purge** :
+  `render.py` uploade et n'efface jamais. Le compteur en tête de Ressources affiche le total.
 
 ### Déjà produit
 
-**Par l'usine** (23/08) — *Les Conquérants* (Heredia), style `cinetique`, 4,1 Mo. Premier passage
-complet de la chaîne. Fond = `painterly_bg` faute de métrage lié, donc à refaire quand le
-générateur sera remplacé.
+**Par l'usine** (23/08) — *Les Conquérants* (Heredia), `cinetique`, 4,1 Mo. Premier passage complet
+de la chaîne. Fond = `painterly_bg` faute de métrage lié, donc à refaire.
 
 **Monté à la main, avant l'usine**
 
-- *Bacchanale* (Heredia, 56 s) — 2 versions : fond peint généré, puis Poussin
-  (*Bacchanale à la joueuse de luth*) en travelling. Musique piano + nappe, ré mineur.
+- *Bacchanale* (Heredia, 56 s) — 2 versions : fond peint généré, puis Poussin (*Bacchanale à la
+  joueuse de luth*) en travelling. Musique piano + nappe, ré mineur.
   ⚠ Le texte utilisé contenait deux virgules absentes de l'édition Lemerre 1893 (vers 7).
 - *Hymne à la Beauté* (Baudelaire, 1 min 47) — DA Galerie avec Moreau (*L'Apparition*).
   Image en 345×500 : si une version HD est trouvée, refaire en `cinetique`.
@@ -438,7 +383,10 @@ générateur sera remplacé.
 
 ### Idées non tranchées
 
-- v1.1 : upload YouTube auto ; rappel par mail le jour d'une publication programmée
+- v1.1 : upload YouTube automatique ; rappel par mail le jour d'une publication programmée
   (préférable à un polling de `render_jobs` dans l'app).
 - Réglage du cadrage par poème pour le style cinétique : aujourd'hui c'est une heuristique
   (fenêtre à 62 % vers le bas). Demanderait une colonne dans `render_jobs`.
+- **Couleurs des tags** dans Ressources : monochromes aujourd'hui, parce que `CLAUDE.md` interdit
+  d'inventer des couleurs. Cinq teintes (une par type) sont faisables comme variables, mais c'est
+  une levée de règle qui appartient à Nicolas.

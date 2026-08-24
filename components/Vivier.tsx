@@ -43,7 +43,7 @@ const mo = (n?: number | null) => (n ? (n / 1e6).toFixed(1) + " Mo" : "—");
 const jour = (s: string) =>
   new Date(s).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "2-digit" });
 
-type Tri = "recent" | "nom" | "poids";
+export type Tri = "recent" | "nom" | "poids";
 const TRIS: { id: Tri; label: string }[] = [
   { id: "recent", label: "plus récents" },
   { id: "nom", label: "nom" },
@@ -59,10 +59,14 @@ export type ViverProps = {
   compact?: boolean;
   /** Incrémenté par l'hôte après un dépôt : la liste se recharge sans état partagé. */
   rafraichir?: number;
+  /** Tri contrôlé, optionnel. Sert au quota : « pour faire de la place, trie par poids ». */
+  tri?: Tri;
+  onTri?: (t: Tri) => void;
 };
 
 export default function Vivier({
   mode = "gestion", kinds, poemId = null, valeur = null, onChoisir, compact = false, rafraichir = 0,
+  tri: triImpose, onTri,
 }: ViverProps) {
   const [assets, setAssets] = useState<any[]>([]);
   const [poems, setPoems] = useState<any[]>([]);
@@ -71,7 +75,9 @@ export default function Vivier({
   const [filtreAmb, setFiltreAmb] = useState<Set<string>>(new Set());
   const [vivierSeul, setVivierSeul] = useState(false);
   const [aClasserSeul, setAClasserSeul] = useState(false);
-  const [tri, setTri] = useState<Tri>("recent");
+  const [triInterne, setTriInterne] = useState<Tri>("recent");
+  const tri = triImpose ?? triInterne;
+  const majTri = (t: Tri) => { setTriInterne(t); onTri?.(t); };
   const [ouverte, setOuverte] = useState<string | null>(null);
   const [curseur, setCurseur] = useState(0);
   const [err, setErr] = useState<string | null>(null);
@@ -316,7 +322,7 @@ export default function Vivier({
               <span className="text-xs" style={{ color: "var(--ink-dim)" }}>Trier :</span>
               {TRIS.map((t) => (
                 <button key={t.id} className="facette" aria-pressed={tri === t.id}
-                  onClick={() => { setTri(t.id); setAnnonce(`${lignes.length} ressources, triées par ${t.label}`); }}>
+                  onClick={() => { majTri(t.id); setAnnonce(`${lignes.length} ressources, triées par ${t.label}`); }}>
                   {t.label}
                 </button>
               ))}

@@ -265,6 +265,76 @@ Quatre règles retenues, valables au-delà de cet écran :
 
 Le tri reste dans les **en-têtes de colonne** : c'est là qu'on le cherche, et une commande
 séparée aurait rajouté au fouillis qu'on venait d'enlever.
+⚠ **Caduc depuis la refonte du 24/08** (ci-dessous) : il n'y a plus de colonnes, donc plus
+d'en-têtes. Le tri devient un groupe de boutons `aria-pressed` intitulé « Trier ».
+
+### Le vivier se regarde et s'écoute — refonte de Ressources (24/08)
+
+Brief : `docs/specs/brief-design-ressources-2026-08-24.md` → planche de Claude design →
+spec : `docs/specs/spec-vivier-visible-2026-08-24.md`, quatre lots.
+**Lot 1 livré et mergé le 24/08** (`feat/vivier-visible-lot1`, 4 fichiers, +835/−451) :
+`lib/vignette.ts`, `components/Vivier.tsx`, `app/ressources/page.tsx` réduite au quota + dépôt +
+montage du vivier, `--encre` dans `globals.css`.
+**Lot 2 livré le 24/08** : contrôle pré-vol du dépôt (type, 50 Mo par fichier, quota restant
+**décompté au fil de la brassée** — trois fichiers de 400 Mo ne peuvent pas tous « tenir dans ce
+qui reste »), file avec total et compte plutôt qu'une barre par fichier, réessai d'un seul
+fichier, état vide, jauge qui propose le tri par poids au-dessus de 90 %.
+⚠ **Un échec d'`insert` après un `upload` réussi retire le fichier du stockage.** Sinon il
+consomme le quota sans apparaître nulle part — même raisonnement que l'ordre base-puis-stockage
+de la suppression.
+**Lots 3 (panneau de l'Atelier) et 4 (palette sur les quatre onglets) restent à faire.** Tant que
+le lot 4 n'est pas passé, l'app vit avec deux identités : Ressources en encre, les trois autres
+onglets tout en or.
+
+Le défaut central n'était pas la logique de filtrage — elle est reprise au caractère près —
+mais que **la matière n'était jamais visible** : on cochait « braise » sur un nom de fichier.
+
+Parti pris retenu : **une liste vignettée unique + une fiche latérale**. Pas de grille, pas de
+bascule, pas de mode plein écran. Pour vingt fichiers, deux vues à maintenir seraient une dette
+pour rien. La fiche reste ouverte pendant qu'on descend la liste : c'est elle, le mode « classer ».
+
+Deux choses qu'on croyait manquer et qui ne manquaient pas :
+
+- **Mieux signaler une cellule éditable ne sert à rien.** Une pastille de 20 px dans une ligne de
+  34 ne sera jamais une bonne cible, signalée ou non. L'édition **sort de la ligne**.
+- **La progression par fichier n'est pas le manque.** `storage.upload()` n'en donne pas sans
+  réécrire l'envoi en XHR. Le vrai manque est en amont : rien n'était refusé **avant** l'envoi.
+  Donc un **contrôle pré-vol** (poids, type, quota restant) et un total, pas une barre.
+
+⚠ **Décision de palette — Nicolas, 24/08 : `2c bleu d'encre #2f3b52` est adopté.**
+Motif : `--gold` faisait quatre métiers (libellés, jetons actifs, liens de poème, bouton Déposer)
+— quand tout est or, rien ne ressort. Le bleu prend **tout ce qui est interactif** (sélection,
+lecture, ambiances, filtres actifs, liens) ; l'or redevient un accent d'apparat, réservé aux
+titres, aux libellés et au dépôt.
+Ratios mesurés : **10,2 sur la page** (`--bg #f7f3ec`) et 11,2 sur blanc — le plus lisible des
+trois propositions, et très au-dessus du seuil de 3,0 des surfaces.
+**Contrepartie assumée, à ne pas oublier : les quatre onglets passent à la même palette.**
+Ressources livrée seule détonnerait — c'est le risque explicite signalé par Design. Ce n'est
+donc plus un réglage local mais une évolution de la DA de l'app. La DA des **vidéos** est
+inchangée : elle reste sombre et vit dans `pipeline/render.py`.
+
+⚠ **Un canvas alimenté depuis une autre origine se « tainte » et `toDataURL` lève une
+SecurityError.** Les URL signées Supabase sont une autre origine : la fabrique de vignettes
+travaille donc **toujours sur un Blob local** — le `File` du dépôt, ou `storage.download()` pour
+le rattrapage. Vaut pour tout ce qu'on voudra dessiner un jour à partir du stockage.
+
+Deux réserves, tranchées à l'écriture de la spec :
+
+- **Design proposait d'afficher les fichiers originaux** en `object-fit: cover` sur 76 × 52.
+  Tenable aujourd'hui (22 fichiers, 107 Mo, et **aucune image en base** : 8 métrages, 6 nappes,
+  5 vidéos montées, 3 voix) — mais le jour où les images arrivent, 24 lignes à 2,5 Mo font 60 Mo
+  par chargement contre **5 Go d'egress par mois** sur le plan Free, soit ~80 ouvertures.
+  ✅ **Tranché : la vignette est fabriquée au dépôt** (canvas, JPEG 152 × 104, ~8 Ko) et rangée
+  dans `meta.vignette`. Elle voyage avec la ligne : zéro requête de stockage à l'affichage, zéro
+  migration, et pas de bucket de miniatures à tenir cohérent avec les suppressions.
+- `meta.duree` écrit à la première lecture : la policy `members_all_assets` (ALL, `is_member()`)
+  l'**autorisait** — la question n'était pas la permission mais l'opportunité.
+  ✅ **Tranché : la durée s'écrit au dépôt, avec la vignette.** Un affichage ne doit pas écrire en
+  base, surtout à deux sur la même page. Le rattrapage des fichiers déjà en base se déclenche par
+  un bouton, jamais tout seul.
+
+Suite attendue : `docs/specs/spec-vivier-visible-2026-08-24.md`, en trois lots — 1) le composant
+`Vivier` et la liste vignettée, 2) le dépôt pré-vol et le quota, 3) le panneau de l'Atelier.
 
 ### Les captions
 

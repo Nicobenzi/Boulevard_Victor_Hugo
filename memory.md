@@ -361,6 +361,30 @@ Elles sont donc **attachées côté Claude.ai**, poussées dans la session au d�
 fichier posé dans le dépôt ne peut les éteindre. **Il faut les détacher dans les réglages du
 projet côté app Claude.** Le fichier est conservé comme trace du diagnostic, pas comme remède.
 
+### Livré le 24/08 — PR #20, mergée
+
+Reprise du projet après une semaine. Trois choses réparées, une ajoutée.
+
+- **Charley avait bien un compte mais aucun profil** — diagnostic et migration de rattrapage
+  `20260824a`. Le détail du piège (`AFTER INSERT` ne rattrape pas les lignes déjà là) est plus
+  haut, dans « Les accès ».
+- **`poems.caption`** (migration `20260824b`) — la caption devient une propriété du poème.
+  Décision et règle de reprise en § 4.
+- **Atelier utilisable au clavier** — le kanban ne se pilotait qu'à la souris ; un sélecteur
+  d'étape dans la fiche porte le même forçage, avec la même règle de retour au calcul. Jours du
+  calendrier en vrais boutons, piège à focus dans la fenêtre, cible du bouton « replier » de 8 à
+  32 px. **Règle générale à garder** : toute action qui n'existe qu'au glisser-déposer doit avoir
+  son équivalent ailleurs, sinon elle n'existe pas pour qui n'a pas de souris.
+- **Contrastes corrigés** — `--line` et pastilles de plateforme, cf. l'encadré du 24/08 en § 2.
+
+⚠ **Le bac à sable Linux ne peut pas builder** (les `node_modules` sont installés pour macOS, il
+faudrait retélécharger `@next/swc-linux-arm64-gnu`, et son disque est plein). `npx tsc --noEmit`
+y fonctionne et valide le typage, mais **`npm run build` doit tourner sur le Mac avant tout push**.
+⚠ **Et mes commandes `git` côté bac à sable laissent un `.git/index.lock` orphelin** que je n'ai
+pas le droit de supprimer : le `git commit` suivant échoue côté Mac avec « Another git process
+seems to be running ». C'est arrivé le 24/08. Remède : `rm -f .git/index.lock` après avoir
+vérifié qu'aucun processus git ne tourne. Mieux : ne pas lancer de `git` depuis le bac à sable.
+
 ### Le seul sujet encore ouvert : l'image
 
 Nicolas ne veut ni tableaux de maîtres (« ça fait vieux ») ni le fond généré actuel.

@@ -21,6 +21,16 @@
   --gold-light: #c9a45c;/* l'or d'origine — réservé aux aplats, jamais au texte */
   --line: #94866a;      /* bordures — ≥ 3,0 contre la page, cf. l'encadré ci-dessus */
   --danger: #a8322f;
+
+  /* Ajouté le 24/08 (spec-vivier-visible). L'or portait quatre rôles à la fois — libellés,
+     jetons actifs, liens de poème, bouton Déposer — et quand tout est or, rien ne ressort.
+     `--encre` prend TOUT ce qui est interactif (sélection, lecture, ambiances, filtres actifs,
+     liens) ; `--gold` redevient un accent d'apparat : titres, libellés, dépôt.
+     Ratios mesurés : 10,2 contre --bg, 11,2 sur --panel. Très au-dessus des deux seuils.
+     ⚠ Nommée `--encre` et non `--nuit` : `nuit` est déjà l'un des neuf identifiants d'ambiance
+     (`lib/ambiances.ts`), deux sens pour un mot dans le même dépôt est une confusion garantie.
+     ⚠ Les quatre onglets doivent passer à cette palette (lot 4) : Ressources seule détonnerait. */
+  --encre: #2f3b52;
 }
 body { background: var(--bg); color: var(--ink); }
 .font-serif2 { font-family: var(--font-cormorant), Georgia, serif; }
@@ -58,3 +68,28 @@ input:focus, select:focus, textarea:focus { outline: 1px solid var(--gold); }
   color: var(--ink-dim); cursor: pointer; line-height: 1;
 }
 .btn-icone:hover { color: var(--ink); background: var(--bg); }
+
+/* Puce d'ambiance, de type ou de filtre. Une seule forme, deux états — et une cible de 32 px,
+   parce qu'on en coche neuf d'affilée. Le fond actif reste très clair : c'est la bordure et le
+   texte qui portent l'information, jamais un aplat qui écraserait le libellé. */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 0 12px; border-radius: 999px;
+  font-size: 12px; line-height: 1; cursor: pointer;
+  border: 1px solid var(--line); color: var(--ink-dim); background: transparent;
+}
+.chip:hover { color: var(--ink); border-color: var(--encre); }
+.chip[aria-pressed="true"], .chip.actif {
+  border-color: var(--encre); color: var(--encre);
+  background: color-mix(in srgb, var(--encre) 8%, transparent);
+}
+.chip .n { opacity: .7; font-variant-numeric: tabular-nums; }
+
+/* Ruban de facettes : du texte discret, pas des contrôles. Il ne doit PAS avoir la même forme
+   que les jetons de filtres actifs, qui eux se retirent d'un clic. */
+.facette {
+  min-height: 32px; padding: 0 8px; border-radius: 8px; font-size: 12px;
+  border: 1px solid transparent; color: var(--ink-dim); background: transparent; cursor: pointer;
+}
+.facette:hover { color: var(--ink); background: var(--panel); }
+.facette[aria-pressed="true"] { color: var(--encre); border-color: var(--encre); }

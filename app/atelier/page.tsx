@@ -40,7 +40,18 @@ export default function Atelier() {
   const [draft, setDraft] = useState<any>({});
   const [pAssets, setPAssets] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
-  const [gen, setGen] = useState({ audio_asset_id: "", image_asset_id: "", style: "cinetique" });
+  const [gen, setGen] = useState({
+    audio_asset_id: "", image_asset_id: "", broll_asset_id: "", music_asset_id: "", style: "cinetique",
+  });
+  // Le vivier est COMMUN : on liste tous les plans et toutes les musiques, liés à un poème
+  // ou non. C'est le sens même du vivier — un plan ressert pour plusieurs poèmes.
+  const [vivier, setVivier] = useState<any[]>([]);
+  const [musiques, setMusiques] = useState<any[]>([]);
+  // Définition du plan choisi, lue à la volée sur la vidéo elle-même : aucune colonne ne la
+  // stocke, et en ajouter une obligerait à repasser sur les fichiers déjà déposés.
+  const [defPlan, setDefPlan] = useState<{ w: number; h: number } | null>(null);
+  const [apercu, setApercu] = useState<{ plan: string; voix: string; musique: string | null } | null>(null);
+  const [videoProduite, setVideoProduite] = useState<string | null>(null);
   const [envoiVoix, setEnvoiVoix] = useState(false);
 
   const [creating, setCreating] = useState(false);
@@ -270,9 +281,41 @@ export default function Atelier() {
     setAutoCrees(null); load();
   }
 
+  // ————— le vivier commun —————
+  // Chargé une fois pour toutes, indépendamment du poème ouvert : depuis le 24/08 le plan de
+  // fond et la musique se choisissent au montage, dans un vivier partagé.
+  async function loadVivier() {
+    const { data } = await supabase.from("assets")
+      .select("id, kind, title, storage_bucket, storage_path")
+      .in("kind", ["broll", "music"]).order("title");
+    setVivier((data ?? []).filter((a: any) => a.kind === "broll"));
+    setMusiques((data ?? []).filter((a: any) => a.kind === "music"));
+  }
+  useEffect(() => { loadVivier(); }, []);
+
+  async function urlSignee(a: any): Promise<string | null> {
+    const { data } = await supabase.storage.from(a.storage_bucket).createSignedUrl(a.storage_path, 3600);
+    return data?.signedUrl ?? null;
+  }
+
+  // La définition se lit sur le fichier, pas en base. Un plan 1280×720 recadré en 9:16 ne
+  // garde que 31 % de sa largeur et s'agrandit 2,7× : on ne l'interdit pas, on le dit.
+  async function mesurerPlan(assetId: string) {
+    setDefPlan(null);
+    const a = vivier.find((x) => x.id === assetId);
+    if (!a) return;
+    const url = await urlSignee(a);
+    if (!url) return;
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => setDefPlan({ w: v.videoWidth, h: v.videoHeight });
+    v.src = url;
+  }
+
   // ————— fiche —————
   async function loadExtras(poemId: string) {
-    const { data: a } = await supabase.from("assets").select("id, kind, title").eq("poem_id", poemId);
+    const { data: a } = await supabase.from("assets")
+      .select("id, kind, title, storage_bucket, storage_path, created_at").eq("poem_id", poemId);
     setPAssets(a ?? []);
     const { data: j } = await supabase.from("render_jobs").select("*").eq("poem_id", poemId)
       .order("created_at", { ascending: false }).limit(5);
@@ -280,8 +323,32 @@ export default function Atelier() {
     setGen({
       audio_asset_id: (a ?? []).find((x: any) => x.kind === "audio")?.id ?? "",
       image_asset_id: (a ?? []).find((x: any) => x.kind === "image")?.id ?? "",
+      broll_asset_id: "", music_asset_id: "",
       style: "cinetique",
     });
+    setDefPlan(null);
+
+    // La vidéo déjà produite est le SEUL aperçu fidèle, et elle ne coûte rien : le fichier
+    // existe. On prend la plus récente.
+    const derniere = (a ?? []).filter((x: any) => x.kind === "video")
+      .sort((x: any, y: any) => (y.created_at ?? "").localeCompare(x.created_at ?? ""))[0];
+    setVideoProduite(derniere ? await urlSignee(derniere) : null);
+  }
+
+  // ————— l'aperçu approché —————
+  // Volontairement pas un vrai rendu : celui-ci demande 3 min d'usine et ~4 Mo de stockage
+  // par essai, sur un quota de 1 Go que rien ne purge. Ce qu'on valide ici — « ce plan va-t-il
+  // avec ce poème », « la musique est-elle au bon niveau » — se voit et s'entend sans ffmpeg.
+  async function ouvrirApercu() {
+    const plan = vivier.find((x) => x.id === gen.broll_asset_id);
+    const voix = pAssets.find((x) => x.id === gen.audio_asset_id);
+    const mus = musiques.find((x) => x.id === gen.music_asset_id);
+    if (!plan || !voix) { setErr("Il faut un plan de fond et une voix pour l'aperçu."); return; }
+    const [uPlan, uVoix, uMus] = await Promise.all([
+      urlSignee(plan), urlSignee(voix), mus ? urlSignee(mus) : Promise.resolve(null),
+    ]);
+    if (!uPlan || !uVoix) { setErr("Impossible de lire les fichiers de l'aperçu."); return; }
+    setApercu({ plan: uPlan, voix: uVoix, musique: uMus });
   }
 
   function dirty() {
@@ -353,7 +420,10 @@ export default function Atelier() {
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("render_jobs").insert({
       poem_id: p.id, audio_asset_id: gen.audio_asset_id,
-      image_asset_id: gen.image_asset_id || null, style: gen.style, created_by: user?.id,
+      image_asset_id: gen.image_asset_id || null,
+      broll_asset_id: gen.broll_asset_id || null,
+      music_asset_id: gen.music_asset_id || null,
+      style: gen.style, created_by: user?.id,
     });
     if (error) { setErr(error.message); return; }
     flash("rendu lancé — l'usine passe toutes les 2 h");
@@ -790,43 +860,72 @@ export default function Atelier() {
                 )}
               </div>
               <div>
-                <div className="label mb-1">Image de fond</div>
-                <select value={gen.image_asset_id} onChange={(e) => setGen({ ...gen, image_asset_id: e.target.value })}>
-                  <option value="">— fond généré —</option>
-                  {pAssets.filter((a) => a.kind === "image").map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                <label className="label mb-1 block" htmlFor="champ-plan">Plan de fond</label>
+                <select id="champ-plan" value={gen.broll_asset_id}
+                  onChange={(e) => { setGen({ ...gen, broll_asset_id: e.target.value }); mesurerPlan(e.target.value); }}>
+                  <option value="">{vivier.length ? "— choisir un plan —" : "— aucun plan disponible —"}</option>
+                  {vivier.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
                 </select>
+                {/* Un plan horizontal recadré en 9:16 ne garde que 31 % de sa largeur et
+                    s'agrandit 2,7× (memory.md § 6). On l'autorise, on le dit. */}
+                {defPlan && (
+                  <p className="text-xs mt-1" style={{ color: defPlan.w > defPlan.h ? "var(--gold)" : "var(--ink-dim)" }}>
+                    {defPlan.w}×{defPlan.h}
+                    {defPlan.w > defPlan.h
+                      ? " — horizontal : recadré en 9:16, 31 % de la largeur conservée, agrandi 2,7×"
+                      : " — vertical"}
+                  </p>
+                )}
+                {!vivier.length && (
+                  <p className="text-xs mt-1" style={{ color: "var(--gold)" }}>
+                    Dépose du métrage dans Ressources — le rendu ne part pas sans fond, et c&apos;est voulu.
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="label mb-1 block" htmlFor="champ-musique">Musique</label>
+                <select id="champ-musique" value={gen.music_asset_id}
+                  onChange={(e) => setGen({ ...gen, music_asset_id: e.target.value })}>
+                  <option value="">— nappe générée —</option>
+                  {musiques.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                </select>
+                <p className="text-xs mt-1" style={{ color: "var(--ink-dim)" }}>
+                  Sous la voix, à −21 LUFS. Une musique trop courte est rebouclée.
+                </p>
               </div>
             </div>
 
-            {/* Le rendu exige un fond depuis le 23/08 : sans image ni métrage lié, `render.py`
-                échoue volontairement plutôt que de fabriquer une image de secours ratée. */}
-            {draft.body?.trim() && gen.audio_asset_id &&
-             !(kindsByPoem[poemeOuvert.id] ?? []).includes("image") &&
-             !(kindsByPoem[poemeOuvert.id] ?? []).includes("broll") && (
-              <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>
-                <div className="label mb-1">Générer la vidéo</div>
-                <p className="text-sm" style={{ color: "var(--gold)" }}>
-                  Il manque un fond. Lie une image ou du métrage à ce poème depuis les
-                  Ressources — le rendu ne part pas sans, et c'est voulu.
-                </p>
-              </div>
-            )}
-
-            {draft.body?.trim() && gen.audio_asset_id &&
-             ((kindsByPoem[poemeOuvert.id] ?? []).includes("image") ||
-              (kindsByPoem[poemeOuvert.id] ?? []).includes("broll")) && (
+            {draft.body?.trim() && gen.audio_asset_id && (
               <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>
                 <div className="flex gap-3 items-end flex-wrap">
                   <div style={{ maxWidth: 260, flex: 1 }}>
-                    <div className="label mb-1">Direction artistique</div>
-                    <select value={gen.style} onChange={(e) => setGen({ ...gen, style: e.target.value })}>
+                    <label className="label mb-1 block" htmlFor="champ-style">Direction artistique</label>
+                    <select id="champ-style" value={gen.style} onChange={(e) => setGen({ ...gen, style: e.target.value })}>
                       <option value="cinetique">Cinétique (mots sur la voix)</option>
                       <option value="musee">Musée (plein écran)</option>
                       <option value="galerie">Galerie (cadre doré)</option>
                     </select>
                   </div>
-                  <button className="btn" onClick={() => launchRender(poemeOuvert)}>Générer la vidéo</button>
+                  <button className="btn2" onClick={ouvrirApercu} disabled={!gen.broll_asset_id}>Aperçu</button>
+                  {/* L'invariant « pas de vidéo sans fond réel » (23/08) vit désormais ici :
+                      au moment où la décision se prend, plus trois écrans en amont. */}
+                  <button className="btn" onClick={() => launchRender(poemeOuvert)} disabled={!gen.broll_asset_id}>
+                    Générer la vidéo
+                  </button>
+                  {!gen.broll_asset_id && (
+                    <span className="text-xs" style={{ color: "var(--gold)" }}>
+                      Choisis un plan de fond — le rendu ne part pas sans.
+                    </span>
+                  )}
                 </div>
+
+                {videoProduite && (
+                  <div className="mt-4">
+                    <div className="label mb-1">Dernière vidéo produite</div>
+                    <video src={videoProduite} controls playsInline
+                      style={{ width: 220, aspectRatio: "9 / 16", borderRadius: 10, border: "1px solid var(--line)", background: "#0e0c0a" }} />
+                  </div>
+                )}
                 {jobs.length > 0 && (
                   <div className="mt-3 grid gap-1">
                     {jobs.map((j) => (
@@ -866,6 +965,95 @@ export default function Atelier() {
           </div>
         </div>
       )}
+
+      {apercu && poemeOuvert && (
+        <Apercu source={apercu} poeme={draft} onFermer={() => setApercu(null)} />
+      )}
+    </div>
+  );
+}
+
+// ————— Aperçu approché —————
+// Ce n'est PAS le rendu. Le vrai rendu étalonne l'image, cale les mots sur la voix et pose les
+// coupes ; il coûte 3 min d'usine et ~4 Mo par essai. Ici on répond à deux questions qui
+// n'exigent pas ffmpeg : ce plan va-t-il avec ce poème, et la musique est-elle au bon niveau ?
+// La phrase sous le cadre est obligatoire — sans elle, l'aperçu se ferait passer pour le
+// résultat, ce qui serait pire que pas d'aperçu du tout.
+function Apercu({ source, poeme, onFermer }: {
+  source: { plan: string; voix: string; musique: string | null };
+  poeme: any;
+  onFermer: () => void;
+}) {
+  const voixRef = useRef<HTMLAudioElement | null>(null);
+  const musRef = useRef<HTMLAudioElement | null>(null);
+  const [souci, setSouci] = useState<string | null>(null);
+
+  // La voix est à −14 LUFS, la musique à −21 : 7 LU dessous, soit un rapport d'amplitude de
+  // 10^(−7/20) ≈ 0,45. C'est le rapport réel du mixage, pas un réglage à l'oreille.
+  useEffect(() => {
+    if (musRef.current) musRef.current.volume = 0.45;
+    // Les trois flux démarrent sur le clic qui a ouvert la fenêtre : le geste satisfait la
+    // politique d'autoplay des navigateurs. Si l'un échoue quand même, on le dit au lieu de
+    // laisser un cadre muet dont on ne comprend pas le silence.
+    Promise.all([voixRef.current?.play(), musRef.current?.play()])
+      .catch(() => setSouci("Le navigateur a refusé de lancer le son — utilise les contrôles."));
+  }, []);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onFermer(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onFermer]);
+
+  const vers = (poeme?.body ?? "").split("\n").map((l: string) => l.trim()).filter(Boolean).slice(0, 3);
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Aperçu approché"
+      onClick={(e) => { if (e.currentTarget === e.target) onFermer(); }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 60, display: "flex",
+        alignItems: "center", justifyContent: "center", padding: "4vh 16px",
+        background: "color-mix(in srgb, var(--ink) 65%, transparent)",
+      }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ display: "grid", gap: 12, justifyItems: "center" }}>
+        <div style={{
+          position: "relative", width: "min(46vh, 90vw)", aspectRatio: "9 / 16",
+          borderRadius: 12, overflow: "hidden", background: "#0e0c0a",
+          border: "1px solid var(--line)",
+        }}>
+          {/* Approximation CSS de la constante ETALONNAGE de render.py : désaturation forte,
+              virage chaud vers la palette, assombrissement (luminance mesurée 121 → 46 sur un
+              vrai plan), léger flou. Approchée, pas exacte — d'où l'avertissement plus bas. */}
+          <video src={source.plan} autoPlay loop muted playsInline
+            style={{
+              position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+              filter: "saturate(0.28) sepia(0.32) brightness(0.52) contrast(1.06) blur(1.1px)",
+            }} />
+          {/* Le dégradé du bas, équivalent de make_grad_overlay : c'est lui qui rend le texte
+              lisible, pas l'étalonnage. */}
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(to top, #0e0c0aee 0%, #0e0c0a99 34%, transparent 62%)",
+          }} />
+          <div style={{
+            position: "absolute", left: 0, right: 0, bottom: "8%", padding: "0 8%",
+            fontFamily: "var(--font-cormorant), Georgia, serif", color: "#ece4d4",
+            fontSize: "clamp(15px, 3.4vh, 26px)", lineHeight: 1.35, textAlign: "center",
+          }}>
+            {vers.map((v: string, i: number) => <div key={i}>{v}</div>)}
+          </div>
+        </div>
+
+        <audio ref={voixRef} src={source.voix} controls style={{ width: "min(46vh, 90vw)" }} />
+        {source.musique && <audio ref={musRef} src={source.musique} loop />}
+
+        <p style={{ color: "var(--panel)", fontSize: 12, maxWidth: "min(46vh, 90vw)", textAlign: "center" }}>
+          Aperçu approché — le rendu final étalonne l&apos;image, cale les mots sur la voix et
+          ajoute les coupes.
+        </p>
+        {souci && <p style={{ color: "var(--gold-light)", fontSize: 12 }}>{souci}</p>}
+        <button className="btn2" onClick={onFermer}>Fermer</button>
+      </div>
     </div>
   );
 }

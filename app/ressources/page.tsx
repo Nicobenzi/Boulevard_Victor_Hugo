@@ -112,9 +112,29 @@ export default function Ressources() {
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   }
 
+  // ⚠ Cette fonction avalait les deux erreurs : on cliquait « confirmer ? », la ligne restait,
+  // et rien ne disait pourquoi. Le bouton passait pour cassé alors que c'est la base qui
+  // refusait — `render_jobs.video_asset_id` était en NO ACTION (corrigé par 20260824d).
+  // Une suppression qui échoue en silence est pire qu'une suppression impossible.
   async function remove(a: any) {
-    await supabase.storage.from(a.storage_bucket).remove([a.storage_path]);
-    await supabase.from("assets").delete().eq("id", a.id);
+    // La base d'abord : si elle refuse, le fichier est toujours là et la ressource reste
+    // cohérente. Dans l'ordre inverse, un échec en base laissait une ligne pointant vers un
+    // fichier effacé — un asset fantôme, impossible à télécharger et impossible à supprimer.
+    const { error } = await supabase.from("assets").delete().eq("id", a.id);
+    if (error) {
+      setErr(
+        error.code === "23503"
+          ? `« ${a.title} » est encore utilisée par un rendu ou une publication. Détache-la d'abord.`
+          : error.message
+      );
+      setConfirmId(null);
+      return;
+    }
+    const { error: eStockage } = await supabase.storage.from(a.storage_bucket).remove([a.storage_path]);
+    // La ligne est partie : on ne remet rien en cause, mais un fichier resté au stockage
+    // consomme le quota sans plus apparaître nulle part. Il faut le dire.
+    if (eStockage) setErr(`Ligne supprimée, mais le fichier est resté au stockage : ${eStockage.message}`);
+    else setErr(null);
     setConfirmId(null);
     load();
   }

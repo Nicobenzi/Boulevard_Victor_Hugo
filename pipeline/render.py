@@ -4,7 +4,7 @@ Prend les render_jobs 'queued' dans Supabase, produit la video (voix + musique),
 l'upload dans le bucket 'videos' et met a jour le job.
 Env requis : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
-import os, sys, re, json, subprocess, tempfile, unicodedata, difflib, hashlib, wave
+import os, sys, re, json, subprocess, tempfile, unicodedata, difflib, wave
 from datetime import datetime, timezone, timedelta
 import numpy as np
 from PIL import Image, ImageFilter, ImageDraw
@@ -114,35 +114,6 @@ def make_drone(path, dur):
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes(data.tobytes())
 
 # ---------------- fonds ----------------
-
-def painterly_bg(path, seed):
-    rng = np.random.default_rng(seed)
-    Wb, Hb = 1600, 2845
-    yy, xx = np.mgrid[0:Hb, 0:Wb].astype(np.float32)
-    img = np.zeros((Hb,Wb,3),dtype=np.float32)
-    grad = (yy/Hb)[...,None]
-    img += (1-grad)*np.array([28,18,11]) + grad*np.array([10,7,5])
-    palette = [(190,130,70),(155,42,30),(205,155,82),(110,70,38),(65,44,26),(228,188,122)]
-    for k in range(7):
-        c = palette[k % len(palette)]
-        cx, cy = rng.uniform(0.15,0.85), rng.uniform(0.15,0.8)
-        rx, ry = rng.uniform(0.15,0.42), rng.uniform(0.12,0.3)
-        amp = rng.uniform(0.45,0.9)
-        d = ((xx-cx*Wb)/(rx*Wb))**2 + ((yy-cy*Hb)/(ry*Hb))**2
-        img += np.exp(-d)[...,None]*amp*np.array(c,dtype=np.float32)
-    noise = np.zeros((Hb,Wb),dtype=np.float32)
-    for octv, ampn in [(6,0.5),(12,0.3),(28,0.2)]:
-        small = rng.random((octv*2,octv)).astype(np.float32)
-        n = np.array(Image.fromarray((small*255).astype(np.uint8)).resize((Wb,Hb),Image.BICUBIC),dtype=np.float32)/255
-        noise += (n-0.5)*ampn
-    nr = (noise-noise.min())/max(np.ptp(noise),1e-6)
-    img *= (0.80 + 0.40*nr[...,None])
-    img += rng.normal(0,4.5,(Hb,Wb,3)).astype(np.float32)
-    ss = np.clip((yy/Hb-0.60)/0.35,0,1); ss = ss*ss*(3-2*ss)
-    img *= (1-0.48*ss)[...,None]
-    d = np.sqrt(((xx-Wb/2)/(Wb*0.60))**2 + ((yy-Hb*0.42)/(Hb*0.60))**2)
-    img *= np.clip(1-0.60*np.clip(d-0.50,0,None)**1.4,0.20,1)[...,None]
-    Image.fromarray(np.clip(img,0,255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.2)).save(path)
 
 def prep_cover(src, path, tw, th, grain=2.4):
     """Redimensionne en cover-crop centre vers (tw,th), unsharp + grain."""
@@ -444,6 +415,30 @@ def process_job(job, wd):
     # fond
     style = job["style"]; pan = False
     img_path = os.path.join(wd, "art.png")
+
+    # Metrage de fond : si des plans « broll » sont lies au poeme, ils remplacent l'image fixe.
+    # Recupere AVANT le fond, parce que c'est l'une des deux sources acceptables et que le
+    # controle ci-dessous doit les connaitre toutes les deux.
+    brolls = []
+    if style == "cinetique":
+        rows = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "broll") \
+                 .order("created_at").execute().data or []
+        for i, a in enumerate(rows):
+            p = os.path.join(wd, f"src_broll_{i}")
+            open(p, "wb").write(SB.storage.from_(a["storage_bucket"]).download(a["storage_path"]))
+            brolls.append(p)
+        if brolls: print(f"  metrage : {len(brolls)} plan(s)")
+
+    # Pas de fond = pas de video. On echoue franchement plutot que de fabriquer une image
+    # de secours : `painterly_bg` produisait une tache pale et centree, par endroits PLUS
+    # CLAIRE que le texte creme (luminance jusqu'a 247 pour un creme a 226), et les vers y
+    # disparaissaient. Un fond rate publie vaut moins qu'un rendu qui refuse de partir.
+    # Le job passe en `error` avec ce message, visible dans l'historique de la fiche du poeme.
+    if not job.get("image_asset_id") and not brolls:
+        raise RuntimeError(
+            "aucun fond : lie une image ou du metrage a ce poeme avant de generer "
+            "(onglet Ressources, colonne « Poeme »)")
+
     if job.get("image_asset_id"):
         ia = SB.table("assets").select("*").eq("id", job["image_asset_id"]).single().execute().data
         src = os.path.join(wd, "src_img")
@@ -463,15 +458,8 @@ def process_job(job, wd):
             prep_cover(src, img_path, round(W * 1.55), round(H * 1.55))
         else:
             prep_cover(src, img_path, 1600, 2845)
-    else:
-        if style == "cinetique":
-            painterly_bg(os.path.join(wd,"pb.png"), int(hashlib.md5(poem["id"].encode()).hexdigest()[:6],16))
-            prep_cover(os.path.join(wd,"pb.png"), img_path, round(W * 1.55), round(H * 1.55))
-        elif style == "galerie":
-            painterly_bg(os.path.join(wd,"pb.png"), int(hashlib.md5(poem["id"].encode()).hexdigest()[:6],16))
-            prep_cover(os.path.join(wd,"pb.png"), img_path, 850, 1233)
-        else:
-            painterly_bg(img_path, int(hashlib.md5(poem["id"].encode()).hexdigest()[:6],16))
+    # Pas de branche « sinon » : sans image liee, on n'arrive ici qu'en `cinetique` avec du
+    # metrage, et c'est le bloc broll plus bas qui fabrique le fond.
 
     sub = os.path.join(wd, "sub.ass")
     black_spans = []
@@ -482,19 +470,6 @@ def process_job(job, wd):
 
     frames = int(total * FPS)
     fade = f"fade=t=in:st=0:d=0.6,fade=t=out:st={total-5.1:.2f}:d=1.2:color=black"
-
-    # Metrage de fond : si des plans « broll » sont lies au poeme, ils remplacent
-    # l'image fixe. C'est le format de tout le contenu court qui fonctionne —
-    # des plans qui coupent, pas une image qu'on regarde une minute.
-    brolls = []
-    if style == "cinetique":
-        rows = SB.table("assets").select("*").eq("poem_id", poem["id"]).eq("kind", "broll") \
-                 .order("created_at").execute().data or []
-        for i, a in enumerate(rows):
-            p = os.path.join(wd, f"src_broll_{i}")
-            open(p, "wb").write(SB.storage.from_(a["storage_bucket"]).download(a["storage_path"]))
-            brolls.append(p)
-        if brolls: print(f"  metrage : {len(brolls)} plan(s)")
 
     if style == "cinetique" and brolls:
         grad = os.path.join(wd, "grad.png"); make_grad_overlay(grad)

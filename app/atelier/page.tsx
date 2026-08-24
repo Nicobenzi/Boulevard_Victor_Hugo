@@ -691,7 +691,23 @@ export default function Atelier() {
               </div>
             </div>
 
-            {draft.body?.trim() && gen.audio_asset_id && (
+            {/* Le rendu exige un fond depuis le 23/08 : sans image ni métrage lié, `render.py`
+                échoue volontairement plutôt que de fabriquer une image de secours ratée. */}
+            {draft.body?.trim() && gen.audio_asset_id &&
+             !(kindsByPoem[poemeOuvert.id] ?? []).includes("image") &&
+             !(kindsByPoem[poemeOuvert.id] ?? []).includes("broll") && (
+              <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>
+                <div className="label mb-1">Générer la vidéo</div>
+                <p className="text-sm" style={{ color: "var(--gold)" }}>
+                  Il manque un fond. Lie une image ou du métrage à ce poème depuis les
+                  Ressources — le rendu ne part pas sans, et c'est voulu.
+                </p>
+              </div>
+            )}
+
+            {draft.body?.trim() && gen.audio_asset_id &&
+             ((kindsByPoem[poemeOuvert.id] ?? []).includes("image") ||
+              (kindsByPoem[poemeOuvert.id] ?? []).includes("broll")) && (
               <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>
                 <div className="flex gap-3 items-end flex-wrap">
                   <div style={{ maxWidth: 260, flex: 1 }}>

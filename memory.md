@@ -67,9 +67,10 @@ Plus aucun hexadécimal en dur dans les composants — tout passe par les variab
 > « Nocturne » (typographie seule sur dégradé) figurait dans les notes mais **n'a jamais été
 > implémenté**. Le style `cinetique` couvre le besoin. Ne pas le réintroduire sans raison.
 
-> ⚠ **Le fond du style cinétique est le sujet non tranché du 23/08.** `painterly_bg` produit une
-> tache pâle qui se bat avec le texte, et Nicolas ne veut plus de tableaux de maîtres. Les
-> constats, le générateur retenu et la place des portraits sont en **§ 6**, pas ici.
+> ⚠ **Tout rendu exige désormais un fond fourni** — une image ou du métrage lié au poème.
+> Il n'y a **plus de fond de secours** : `painterly_bg` a été supprimé le 23/08 parce qu'il
+> produisait une image par endroits plus claire que le texte. Sans fond, le job échoue
+> volontairement. Le détail et le raisonnement sont en **§ 6**.
 
 **Pourquoi le cinétique** (veille concurrence du 23/08) : un plan fixe est une cible de scroll —
 sous 50 % de rétention à 3 s, le reste ne compte pas. L'ancien Ken Burns faisait 0,15 %/s, soit
@@ -325,12 +326,24 @@ apparaissent quand même, c'est que Cowork ne lit pas ce fichier — le signaler
 
 Nicolas ne veut ni tableaux de maîtres (« ça fait vieux ») ni le fond généré actuel.
 
-- **`painterly_bg` est le coupable, pas la génération.** Il produit une grosse tache pâle et jaune,
-  centrée, qui se bat avec le texte. D'autres fonds **générés exactement pareil** fonctionnent très
-  bien. Ne pas conclure « il faut du filmé » : il faut un meilleur générateur.
-- **Le candidat retenu (« E »)** : nébuleuse de braise + champ d'étoiles, **animé** (bruit 3D dont
-  la 3ᵉ dimension est le temps), semé sur l'identifiant du poème. Sombre, dans la palette, avec de
-  grandes zones calmes. À substituer à `painterly_bg`.
+- ✅ **`painterly_bg` a été SUPPRIMÉ le 23/08.** Mesuré avant de couper : la moitié haute montait à
+  **143** de luminance et les pics à **247**, pour un crème de texte à **226** — le fond était par
+  endroits *plus clair que les vers*, qui disparaissaient. Deux défauts de conception : les sept
+  taches étaient tirées dans un carré central (`cx` 0,15–0,85) donc se superposaient toujours au
+  même endroit, et la palette était claire par nature (`(228,188,122)`) sans rien qui borne la
+  somme avant le `clip` final.
+  **Décision de Nicolas : pas de fond de secours du tout.** `render.py` échoue franchement si
+  aucune image ni métrage n'est lié — « aucun fond : lie une image ou du metrage à ce poème ».
+  Le job passe en `error`, visible dans l'historique de la fiche. *Un fond raté publié vaut moins
+  qu'un rendu qui refuse de partir.*
+  L'app applique la même règle : `etapeCalculee()` garde le poème en « À préparer » tant qu'il n'a
+  pas de fond, la carte affiche « aucun fond », et la fiche remplace le bouton par l'explication.
+  ⚠ **Le contrôle côté `render.py` et celui de `lib/etapes.ts` doivent rester d'accord.** Si l'un
+  bouge, l'autre aussi — sinon l'app propose un rendu qui échouera, ou le refuse à tort.
+- **Si un générateur revient un jour**, le candidat était « E » : nébuleuse de braise + champ
+  d'étoiles, animé (bruit 3D dont la 3ᵉ dimension est le temps), semé sur l'identifiant du poème.
+  Principe à retenir de l'échec de `painterly_bg` : **partir du noir et ajouter très peu de
+  lumière**, au lieu d'empiler des taches claires en espérant que l'assombrissement final rattrape.
 - **Portraits d'auteur : pas en fond.** Testé sur la gravure de Heredia — un portrait remplit le
   cadre de détail et n'a **aucune zone calme**, les vers y sont illisibles. Sa place est la **carte
   d'ouverture** (titre + auteur), là où un regard retient mieux qu'une texture.
@@ -349,15 +362,14 @@ Nicolas ne veut ni tableaux de maîtres (« ça fait vieux ») ni le fond géné
 
 ### À faire
 
-1. **Remplacer `painterly_bg` par le générateur « E »** (nébuleuse animée). Le plus structurant.
-2. **Carte d'ouverture** avec portrait d'auteur traité en N&B dur.
-3. **Purger les exports en double** : trois fichiers coexistent pour *Les Conquérants*
+1. **Carte d'ouverture** avec portrait d'auteur traité en N&B dur.
+2. **Purger les exports en double** : trois fichiers coexistent pour *Les Conquérants*
    (`cinetique`, `voix seule`, `avec musique`) ≈ 12 Mo, alors que la règle « un seul export » est
    actée. Résidus d'avant la décision.
-4. **Cache du modèle Whisper** (~500 Mo retéléchargés à chaque exécution).
-5. **Lot 3 de la refonte** : colonne `à valider`. C'est un état humain — le seul qui ne se dérive
+3. **Cache du modèle Whisper** (~500 Mo retéléchargés à chaque exécution).
+4. **Lot 3 de la refonte** : colonne `à valider`. C'est un état humain — le seul qui ne se dérive
    pas des données, comme `etape_manuelle` (§ 4).
-6. **Sortir du dépôt** ce qui n'y a pas sa place : l'export Instagram de Charley (§ 4). Le
+5. **Sortir du dépôt** ce qui n'y a pas sa place : l'export Instagram de Charley (§ 4). Le
    `.gitignore` protège, mais un fichier ignoré reste posé au mauvais endroit.
 
 ### Plafonds à surveiller

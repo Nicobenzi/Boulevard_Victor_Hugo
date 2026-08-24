@@ -203,6 +203,30 @@ L'onglet « Poèmes » mentait sur le produit, et sa fiche faisait saisir des ch
   texte doit venir de Wikisource collationné — Whisper ne peut pas en être la source.
 - **`à valider` est un état humain**, donc une vraie colonne : c'est la seule exception au principe
   « l'avancement est dérivé ».
+
+### Forçage des cartes du kanban — livré le 23/08 (colonne `poems.etape_manuelle`)
+
+Nicolas a tranché pour la permissivité : **on peut déposer une carte dans n'importe quelle
+colonne**, même contre les données. `poems.etape_manuelle` (text, nullable, contrainte sur les
+6 identifiants d'étape) porte le forçage ; `NULL` = l'étape reste calculée.
+
+⚠ **C'est la seule entorse au principe « l'avancement est dérivé », et elle n'est tenable qu'à
+une condition : que le forçage se VOIE.** Une carte forcée porte un liseré or et la mention
+« déplacée à la main — en réalité *<étape calculée>* » ; sa fiche rappelle la même chose et offre
+« revenir au calcul ». Sans ces marqueurs on recréerait exactement `poems.status` : un champ
+saisi qui dérive en silence et auquel plus personne ne se fie. **Ne jamais les retirer.**
+Déposer une carte dans la colonne que le calcul donnait déjà remet `etape_manuelle` à `NULL` —
+le retour au calcul est donc aussi naturel que le forçage.
+
+`lib/etapes.ts` distingue désormais `etapeCalculee()` (les faits), `etapeDe()` (l'affiché, forçage
+prioritaire) et `estForcee()`. **Tout écran qui appelle `etapeDe()` doit sélectionner
+`etape_manuelle`** — sinon il affiche l'étape calculée pendant que le kanban montre l'autre, et les
+écrans se contredisent (piège rencontré sur l'accueil, corrigé).
+
+> 💡 **Le MCP Supabase n'est pas entièrement en lecture seule.** `execute_sql` refuse les écritures
+> (`cannot execute INSERT in a read-only transaction`), mais **`apply_migration` fonctionne** : le
+> DDL passe. Autrement dit, une migration peut être appliquée directement ; une insertion ou une
+> mise à jour de données doit toujours passer par l'éditeur SQL du dashboard.
 - **Accueil = « tient-on le rythme ? »** (vidéos prêtes d'avance, prochain trou au calendrier), pas
   un comptage d'objets — la régularité de publication est la priorité du projet.
 

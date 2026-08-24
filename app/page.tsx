@@ -21,7 +21,9 @@ export default function Accueil() {
 
   useEffect(() => {
     (async () => {
-      const { data: p, error } = await supabase.from("poems").select("id, title, author, body");
+      // `etape_manuelle` est indispensable : sans elle, l'accueil compterait l'étape calculée
+      // pendant que le kanban affiche l'étape forcée, et les deux écrans se contrediraient.
+      const { data: p, error } = await supabase.from("poems").select("id, title, author, body, etape_manuelle");
       if (error) { setErr(error.message); return; }
       setPoems(p ?? []);
 

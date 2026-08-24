@@ -5,6 +5,7 @@ l'upload dans le bucket 'videos' et met a jour le job.
 Env requis : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
 import os, sys, re, json, subprocess, tempfile, unicodedata, difflib, hashlib, wave
+from datetime import datetime, timezone, timedelta
 import numpy as np
 from PIL import Image, ImageFilter, ImageDraw
 from supabase import create_client
@@ -20,7 +21,10 @@ if not _URL or not _KEY:
 SB = create_client(_URL, _KEY)
 W, H = 1080, 1920
 FPS = 30
-MAX_JOBS = 3
+# 2 et non 3 : un rendu prend ~3 min, mais la marge est faible sur les 40 min du workflow
+# si l'un d'eux est long (poeme de 1 min 47, source lourde). Mieux vaut deux jobs surs
+# qu'un troisieme coupe en plein milieu — qui resterait « running » jusqu'au repechage.
+MAX_JOBS = 2
 # Niveau de la musique sous la voix (elle-meme a -14 LUFS). Plus le chiffre monte,
 # plus la nappe est presente. -21 = elle habille ; -26 = on ne l'entend plus.
 MUSIQUE_LUFS = -21
@@ -179,10 +183,17 @@ def prep_cover(src, path, tw, th, grain=2.4):
 # C'est la raison du brightness a -0.03 et non -0.12 : a -0.12 les braises dans la
 # nuit tombaient a #000000 et le fond perdait tout mouvement. L'assombrissement sous
 # le texte n'est pas le travail de l'etalonnage, c'est celui de make_grad_overlay.
+# ⚠ `curves` est la piece maitresse, ajoutee apres un test sur un vrai plan (cascade en foret,
+# 23/08). Sans elle, un sujet LUMINEUX ne fait que virer sepia : l'etalonnage teinte au lieu
+# d'assombrir, et le texte creme devient illisible sur la moitie haute. Mesure sur ce plan :
+# luminance moyenne 121 (brut) -> 88 (sans curves) -> 46 (avec). Sous la bande de texte, le
+# contraste avec le creme passe de 3,3:1 a 6,1:1 — le seuil de lisibilite est a 4,5.
+# Le flou est a 2,5 et non 5 : a 5 ca lit comme un defaut de mise au point, pas de la profondeur.
 ETALONNAGE = (
-    "eq=brightness=-0.03:contrast=1.06:saturation=0.26:gamma=1.02,"
-    "colorbalance=rs=0.02:gs=0.00:bs=-0.04:rm=0.11:gm=0.03:bm=-0.11:rh=0.14:gh=0.06:bh=-0.12,"
-    "gblur=sigma=5,"
+    "eq=brightness=-0.02:contrast=1.04:saturation=0.24:gamma=1.0,"
+    "curves=all='0/0 0.25/0.13 0.5/0.28 0.75/0.42 1/0.55',"
+    "colorbalance=rs=0.02:gs=0.00:bs=-0.04:rm=0.10:gm=0.03:bm=-0.10:rh=0.13:gh=0.05:bh=-0.12,"
+    "gblur=sigma=2.5,"
     "vignette=PI/4.5,"
     "noise=alls=7:allf=t+u"
 )
@@ -591,8 +602,31 @@ def check_font():
             "Cormorant Garamond introuvable (fc-list). Le rendu utiliserait une autre "
             "police que le site. Verifie l'etape « Install ffmpeg + fonts » du workflow.")
 
+def repecher_jobs_bloques(heures=1):
+    """
+    Un job passe en `running` avant le rendu. Si l'execution meurt en cours de route —
+    runner tue, timeout GitHub, OOM — le statut reste `running` POUR TOUJOURS : plus rien
+    ne le reprend, et le poeme reste bloque en « En rendu » dans l'Atelier sans que
+    personne ne comprenne pourquoi.
+
+    On repeche donc tout `running` plus vieux que `heures`. Le seuil est large : un rendu
+    prend ~3 min, une heure ne peut pas etre une execution encore vivante.
+    """
+    limite = (datetime.now(timezone.utc) - timedelta(hours=heures)).isoformat()
+    bloques = SB.table("render_jobs").select("id,poem_id,updated_at,created_at") \
+        .eq("status", "running").lt("created_at", limite).execute().data
+    for j in bloques or []:
+        print(f"  repeche job {j['id']} (bloque en running depuis {j['created_at']})")
+        SB.table("render_jobs").update({
+            "status": "queued",
+            "error": "reprise automatique : execution precedente interrompue",
+        }).eq("id", j["id"]).execute()
+    return len(bloques or [])
+
 def main():
     check_font()
+    n = repecher_jobs_bloques()
+    if n: print(f"{n} job(s) bloque(s) remis en file")
     jobs = SB.table("render_jobs").select("*").eq("status","queued").order("created_at").limit(MAX_JOBS).execute().data
     if not jobs:
         print("aucun job en attente"); return

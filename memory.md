@@ -152,9 +152,23 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
 
 ## 4. Décisions d'architecture
 
-- **Publication v1 = assistée**, pas d'API directe. Vérifié en août 2026 : Instagram exige un
-  compte Business + app review Meta (2-4 semaines) ; TikTok poste en « moi uniquement » sans audit ;
-  YouTube verrouille en privé les uploads d'un projet non audité.
+- **Publication v1 = assistée**, pas d'API directe. ⚠ **Corrigé le 24/08 — la note du 23/08 était
+  fausse sur Instagram.** Elle disait « compte Business + app review (2-4 semaines) » : c'est vrai
+  pour publier **au nom d'autrui**, pas pour publier sur **son propre compte**. Dans ce cas l'app
+  Meta reste en **mode développement** et il suffit de s'attribuer le rôle *Instagram Tester* —
+  **aucune app review**. C'est notre cas. Restent vrais : TikTok poste en `SELF_ONLY` sans audit
+  (et exige que le compte soit **privé au moment de la publication**), YouTube verrouille en privé
+  les uploads d'un projet non audité, **sans appel possible**.
+  ⚠ **Et le second obstacle n'en est pas un** : « il faudrait une Edge Function, ce qui casse
+  “tout en client” » ignore qu'on a **déjà un serveur** — GitHub Actions, qui rend les vidéos et
+  détient déjà `SUPABASE_SERVICE_ROLE_KEY`. Publier serait une étape du même workflow, token Meta
+  en secret d'Actions. *La règle « tout en client » concerne l'app, jamais l'usine.*
+  Deux coûts réels si le sujet est rouvert : le compte Instagram doit devenir **professionnel et
+  lié à une Page Facebook** (décision de Charley, pas technique), et le token long-lived **expire
+  tous les 60 jours** — non rafraîchi, la chaîne casse **en silence**, le pire mode de panne ici.
+  **Décision du 24/08 : on ne le fait pas maintenant.** Zéro vidéo publiée pour trois poèmes
+  montés — automatiser un geste qu'on n'a pas fait vingt fois est précisément ce que ce projet
+  s'interdit. À rouvrir quand la publication à la main sera devenue pénible, pas avant.
   → L'app prépare le fichier + la caption, Nicolas publie en 2 clics.
   **Lire les publications demanderait en plus une Edge Function** (tokens côté serveur), ce qui
   contredit la règle « tout en client ». À ne pas lancer sans décision explicite.
@@ -199,6 +213,16 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   introuvable depuis la fiche et provoquait des « ajoute d'abord une bande son » inexplicables.
 - **Veille** — table `inspirations` (et non `references`, mot réservé en SQL) + onglet dédié :
   carnet des comptes et vidéos repérés ailleurs.
+- **Les comptes du projet (décidé le 24/08)** — Instagram, TikTok et YouTube, ouverts sous une
+  **adresse mail dédiée** partagée entre Nicolas et Charley (ni l'un ni l'autre n'est un point
+  de passage obligé), pseudo **identique partout**, Instagram en **Créateur**.
+  Marche à suivre et bios rédigées : `docs/comptes-reseaux-2026-08-24.md`.
+  ⚠ **Créer la Page Facebook liée tout de suite**, même vide : c'est le prérequis de l'API de
+  publication Instagram, et la rattacher à un compte déjà vivant coûte une soirée là où elle
+  coûte cinq minutes aujourd'hui. C'est le seul geste qui prépare l'avenir.
+  ⚠ **Aucun identifiant dans le dépôt** — il est public et l'historique git ne s'efface pas.
+  Gestionnaire de mots de passe partagé, double authentification sur le mail *et* sur les trois
+  comptes.
 - **Notes (24/08)** — table `notes`, fil par poème pour travailler à deux en asynchrone.
   Spec : `docs/specs/spec-notes-atelier-2026-08-24.md`. Migration `20260824g`.
   ⚠ **`poems.notes` existait déjà et n'a JAMAIS servi** (vide sur les trois poèmes) : retiré de
@@ -491,9 +515,18 @@ Nicolas ne veut ni tableaux de maîtres (« ça fait vieux ») ni le fond géné
 ### À faire
 
 1. **Carte d'ouverture** avec portrait d'auteur traité en N&B dur.
-2. **Purger les exports en double** : trois fichiers coexistent pour *Les Conquérants*
-   (`cinetique`, `voix seule`, `avec musique`) ≈ 12 Mo, alors que la règle « un seul export » est
-   actée. Résidus d'avant la décision.
+2. ~~**Purger les exports en double.**~~ **Fait le 24/08**, et vérifié : zéro orphelin dans les
+   deux buckets, la ligne et le fichier partent ensemble, le `render_jobs.video_asset_id` du
+   job concerné repasse à `NULL` au lieu de bloquer. Le doublon supprimé est `0b3092ff`.
+   ⚠ La note du 23/08 annonçait *trois* fichiers pour
+   *Les Conquérants* (`cinetique`, `voix seule`, `avec musique`, ≈ 12 Mo) : **vérifié le 24/08,
+   il n'y en a que deux**, tous deux en variante `musique` — la voix seule avait déjà disparu.
+   `les-conquerants_f1939571_musique.mp4` (3,92 Mo) et `..._0b3092ff_musique.mp4` (3,93 Mo),
+   rendues à douze minutes d'intervalle. Garder la seconde.
+   Le geste appartient à Nicolas : **le MCP écrit en base mais n'a aucun accès aux buckets**,
+   donc supprimer la ligne depuis une session laisserait le fichier orphelin — le défaut
+   inverse de celui corrigé le 24/08. Passer par le bouton de Ressources, qui fait les deux.
+   État du stockage au 24/08 : **67,8 Mo pour 19 fichiers**, sur 1 Go. Rien ne purge.
 3. **Cache du modèle Whisper** (~500 Mo retéléchargés à chaque exécution).
 4. **Lot 3 de la refonte** : colonne `à valider`. C'est un état humain — le seul qui ne se dérive
    pas des données, comme `etape_manuelle` (§ 4).

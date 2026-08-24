@@ -23,6 +23,10 @@ export type Contexte = {
 export function etapeCalculee(poem: { body?: string | null }, ctx: Contexte): EtapeId {
   if (!poem.body?.trim()) return "preparer";
   if (!ctx.kinds.includes("audio")) return "preparer";
+  // Depuis le 23/08, `render.py` n'a plus de fond de secours : sans image ni métrage lié,
+  // le rendu échoue volontairement. Autant le dire ici plutôt que de laisser partir un job
+  // qui reviendra en erreur.
+  if (!ctx.kinds.includes("image") && !ctx.kinds.includes("broll")) return "preparer";
   if (ctx.jobs.some((s) => s === "queued" || s === "running")) return "rendu";
   if (!ctx.kinds.includes("video")) return "rendre";
   if (ctx.pubs.length === 0) return "programmer";
@@ -53,5 +57,6 @@ export function estForcee(poem: { body?: string | null; etape_manuelle?: string 
 export function manqueDe(poem: { body?: string | null }, ctx: Contexte): string | null {
   if (!poem.body?.trim()) return "texte manquant";
   if (!ctx.kinds.includes("audio")) return "voix manquante";
+  if (!ctx.kinds.includes("image") && !ctx.kinds.includes("broll")) return "aucun fond";
   return null;
 }

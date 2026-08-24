@@ -71,6 +71,14 @@ Le mettre à jour après toute décision structurante.
   dans `supabase/migrations/`.
 - L'avancement d'un poème est **dérivé** des données, pas lu dans `poems.status` (qui dérive).
 - Musique : 100 % générée, jamais de sample ni d'enregistrement tiers.
+- **Ambiances du vivier : vocabulaire fermé de 9 mots**, figé le 23/08 dans `lib/ambiances.ts`
+  (`nuit braise orage vertige melancolie tendresse apre solennel vide`). Identifiants **sans
+  accents**, libellés accentués pour l'affichage. Rangées dans `assets.meta.ambiances` (jsonb
+  déjà présent, aucune migration). Ne pas ajouter de mot sans décision explicite de Nicolas :
+  un vocabulaire qui s'étend au fil de l'eau redevient du texte libre, donc infiltrable.
+- **Métrage de fond** : privilégier les sources **verticales** (1080×1920 natif), sinon la plus
+  haute résolution disponible. Un 720p horizontal recadré en 9:16 ne garde que 31 % de la largeur
+  et agrandit 2,7×. Provenance et licence tenues dans `metrage/SOURCES.md` (dossier hors git).
 
 ## Commandes
 ```bash

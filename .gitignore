@@ -1,6 +1,7 @@
 node_modules/
 .next/
 next-env.d.ts
+metrage/
 .env*
 .vercel
 __pycache__/

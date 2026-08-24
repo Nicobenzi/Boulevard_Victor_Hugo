@@ -37,7 +37,11 @@ export default function Ressources() {
   const [poems, setPoems] = useState<any[]>([]);
   const [q, setQ] = useState("");
   const [filtres, setFiltres] = useState<Set<string>>(new Set());
-  const [filtrePoeme, setFiltrePoeme] = useState("");
+  // Le filtre « poème » n'est plus un menu déroulant : chercher un titre suffit depuis que la
+  // recherche couvre les poèmes. Restent deux états qui ne se tapent pas — le vivier commun et
+  // ce qui reste à classer — devenus des pastilles comme les autres.
+  const [vivierSeul, setVivierSeul] = useState(false);
+  const [aClasserSeul, setAClasserSeul] = useState(false);
   const [filtreAmb, setFiltreAmb] = useState<Set<string>>(new Set());
   const [tri, setTri] = useState<Tri>({ col: "created_at", sens: -1 });
   const [edit, setEdit] = useState<{ id: string; champ: "kind" | "poem" | "amb" } | null>(null);
@@ -168,29 +172,89 @@ export default function Ressources() {
     setTri((t) => (t.col === col ? { col, sens: (t.sens * -1) as 1 | -1 } : { col, sens: 1 }));
   }
 
-  const lignes = useMemo(() => {
-    let L = assets;
-    if (q.trim()) {
-      const t = q.toLowerCase();
-      L = L.filter((a) => (a.title ?? "").toLowerCase().includes(t) || (a.poems?.title ?? "").toLowerCase().includes(t));
-    }
-    if (filtres.size) L = L.filter((a) => filtres.has(a.kind));
-    // Filtre par ambiance : cumulatif en OU — on cherche « quelque chose de sombre OU d'âpre »,
-    // pas une ressource qui serait les deux à la fois.
-    if (filtreAmb.size) L = L.filter((a) => ambiancesDe(a).some((x) => filtreAmb.has(x)));
-    if (filtrePoeme === "__vivier") L = L.filter((a) => !a.poem_id);
-    else if (filtrePoeme) L = L.filter((a) => a.poem_id === filtrePoeme);
+  // ————— filtrage et facettes —————
+  //
+  // Le 24/08, cette barre affichait **14 commandes dont 10 ne pouvaient renvoyer que du vide** :
+  // aucune image en base, aucune ambiance renseignée. Elle annonçait une bibliothèque qui
+  // n'existait pas encore, et pour 19 fichiers faire défiler la table allait plus vite.
+  //
+  // D'où le principe : **un seul champ qui cherche partout** (nom, type, ambiance, poème) et
+  // des pastilles qui **n'existent que si elles ramènent quelque chose**. Rien ne se règle
+  // « au cas où » : la barre grandit d'elle-même à mesure que le vivier se remplit.
+  const { lignes, factKinds, factAmb, nVivier } = useMemo(() => {
+    const texte = q.trim().toLowerCase();
+
+    // La recherche couvre les libellés affichés, pas seulement les noms de fichiers : taper
+    // « métrage », « braise » ou « Bacchanale » doit marcher, sinon le champ unique ment.
+    const parTexte = (a: any) => {
+      if (!texte) return true;
+      return [
+        a.title ?? "",
+        a.poems?.title ?? "",
+        KIND_LABEL[a.kind] ?? a.kind,
+        ...ambiancesDe(a).map((x) => LIBELLE_AMBIANCE[x] ?? x),
+      ].some((c) => c.toLowerCase().includes(texte));
+    };
+    const parVivier = (a: any) => !vivierSeul || !a.poem_id;
+    const parClasser = (a: any) =>
+      !aClasserSeul || (VIVIER.includes(a.kind) && ambiancesDe(a).length === 0);
+    const parKind = (a: any) => !filtres.size || filtres.has(a.kind);
+    // Ambiances en OU : on cherche « quelque chose de sombre OU d'âpre », pas une ressource
+    // qui serait les deux à la fois.
+    const parAmb = (a: any) => !filtreAmb.size || ambiancesDe(a).some((x) => filtreAmb.has(x));
+
+    const socle = assets.filter((a) => parTexte(a) && parVivier(a) && parClasser(a));
+
+    // ⚠ Le compte d'une facette s'évalue SANS elle-même. Sinon il affiche le résultat déjà
+    // filtré et ne dit plus ce qu'on gagnerait à cliquer ailleurs — un compteur qui répète
+    // la sélection ne sert à rien.
+    const pourKinds = socle.filter(parAmb);
+    const pourAmb = socle.filter(parKind);
+
+    // `f.n > 0 || déjà cochée` : une pastille active ne disparaît jamais sous le doigt, même
+    // quand elle ne ramène plus rien — sinon on ne pourrait plus la décocher.
+    const factKinds = KINDS
+      .map((k) => ({ id: k as string, label: KIND_LABEL[k], n: pourKinds.filter((a) => a.kind === k).length }))
+      .filter((f) => f.n > 0 || filtres.has(f.id));
+    const factAmb = AMBIANCES
+      .map((a) => ({ id: a.id, label: a.label, aide: a.aide,
+                     n: pourAmb.filter((x) => ambiancesDe(x).includes(a.id)).length }))
+      .filter((f) => f.n > 0 || filtreAmb.has(f.id));
+
+    const L = socle.filter((a) => parKind(a) && parAmb(a));
     const v = (a: any) =>
       tri.col === "poem" ? (a.poems?.title ?? "") :
       tri.col === "kind" ? KIND_LABEL[a.kind] ?? a.kind :
       tri.col === "amb" ? ambiancesDe(a).join(",") :
       tri.col === "size_bytes" ? (a.size_bytes ?? 0) : (a[tri.col] ?? "");
-    return [...L].sort((a, b) => {
+    const lignes = [...L].sort((a, b) => {
       const x = v(a), y = v(b);
       if (x === y) return 0;
       return (x > y ? 1 : -1) * tri.sens;
     });
-  }, [assets, q, filtres, filtreAmb, filtrePoeme, tri]);
+    return { lignes, factKinds, factAmb, nVivier: assets.filter((a) => !a.poem_id).length };
+  }, [assets, q, filtres, filtreAmb, vivierSeul, aClasserSeul, tri]);
+
+  // Les filtres actifs, tous types confondus, sous une forme unique : un libellé et le geste
+  // qui l'enlève. C'est ce qui permet de les rassembler au même endroit.
+  const jetons = [
+    ...(q.trim() ? [{ cle: "q", label: `« ${q.trim()} »`, retirer: () => setQ("") }] : []),
+    ...[...filtres].map((k) => ({
+      cle: `k-${k}`, label: KIND_LABEL[k] ?? k,
+      retirer: () => setFiltres((s) => { const n = new Set(s); n.delete(k); return n; }),
+    })),
+    ...[...filtreAmb].map((a) => ({
+      cle: `a-${a}`, label: LIBELLE_AMBIANCE[a] ?? a,
+      retirer: () => setFiltreAmb((s) => { const n = new Set(s); n.delete(a); return n; }),
+    })),
+    ...(vivierSeul ? [{ cle: "vivier", label: "vivier commun", retirer: () => setVivierSeul(false) }] : []),
+    ...(aClasserSeul ? [{ cle: "classer", label: "à classer", retirer: () => setAClasserSeul(false) }] : []),
+  ];
+
+  function toutEffacer() {
+    setQ(""); setFiltres(new Set()); setFiltreAmb(new Set());
+    setVivierSeul(false); setAClasserSeul(false);
+  }
 
   const total = assets.reduce((s, a) => s + (a.size_bytes ?? 0), 0);
   const aClasser = assets.filter((a) => !a.poem_id && !VIVIER.includes(a.kind)).length;
@@ -215,29 +279,11 @@ export default function Ressources() {
 
       {err && <div className="card mb-4" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>Erreur : {err}</div>}
 
-      {/* barre d'outils */}
-      <div className="flex gap-2 items-center flex-wrap mb-3">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…"
-          style={{ width: 200 }} />
-        {KINDS.map((k) => {
-          const on = filtres.has(k);
-          return (
-            <button key={k} onClick={() => bascule(k)} aria-pressed={on}
-              className="text-xs rounded-full px-3 py-1"
-              style={{
-                border: `1px solid ${on ? "var(--gold)" : "var(--line)"}`,
-                color: on ? "var(--gold)" : "var(--ink-dim)",
-                background: on ? "color-mix(in srgb, var(--gold) 10%, transparent)" : "transparent",
-              }}>
-              {KIND_LABEL[k]}
-            </button>
-          );
-        })}
-        <select value={filtrePoeme} onChange={(e) => setFiltrePoeme(e.target.value)} style={{ width: 190 }}>
-          <option value="">Tous les poèmes</option>
-          <option value="__vivier">Vivier commun (sans poème)</option>
-          {poems.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-        </select>
+      {/* ————— la barre ————— */}
+      <div className="flex gap-2 items-center flex-wrap mb-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="Chercher une ressource"
+          placeholder="Chercher un nom, un type, une ambiance, un poème…"
+          style={{ maxWidth: 400 }} />
         <label className="btn text-xs cursor-pointer ml-auto">
           {busy ? "envoi…" : "+ Déposer"}
           <input type="file" multiple disabled={busy} style={{ display: "none" }}
@@ -245,35 +291,95 @@ export default function Ressources() {
         </label>
       </div>
 
-      {/* filtre par ambiance — le vocabulaire est fermé (lib/ambiances.ts) */}
+      {/* Les filtres actifs, rassemblés. Éparpillés dans la barre, on oubliait d'en enlever un
+          et la bibliothèque paraissait vide sans qu'on sache pourquoi. */}
+      {jetons.length > 0 && (
+        <div className="flex gap-2 items-center flex-wrap mb-2">
+          {jetons.map((j) => (
+            <button key={j.cle} onClick={j.retirer} aria-label={`Retirer le filtre ${j.label}`}
+              className="text-xs rounded-full px-3 py-1"
+              style={{
+                border: "1px solid var(--gold)", color: "var(--gold)",
+                background: "color-mix(in srgb, var(--gold) 10%, transparent)",
+              }}>
+              {j.label} ✕
+            </button>
+          ))}
+          <button className="text-xs" style={{ color: "var(--ink-dim)" }} onClick={toutEffacer}>
+            tout effacer
+          </button>
+          <span className="text-xs" aria-live="polite" style={{ color: "var(--ink-dim)" }}>
+            {lignes.length} sur {assets.length}
+          </span>
+        </div>
+      )}
+
+      {/* Les facettes. Chacune porte son compte et n'apparaît que si elle ramène quelque
+          chose : une pastille qui ne peut rendre que du vide est du bruit. */}
       <div className="flex gap-2 items-center flex-wrap mb-3">
-        <span className="label" style={{ marginRight: 4 }}>Ambiance</span>
-        {AMBIANCES.map((a) => {
-          const on = filtreAmb.has(a.id);
+        {factKinds.map((f) => {
+          const on = filtres.has(f.id);
           return (
-            <button key={a.id} onClick={() => basculeAmbFiltre(a.id)} aria-pressed={on} title={a.aide}
+            <button key={f.id} onClick={() => bascule(f.id)} aria-pressed={on}
               className="text-xs rounded-full px-3 py-1"
               style={{
                 border: `1px solid ${on ? "var(--gold)" : "var(--line)"}`,
                 color: on ? "var(--gold)" : "var(--ink-dim)",
                 background: on ? "color-mix(in srgb, var(--gold) 10%, transparent)" : "transparent",
               }}>
-              {a.label}
+              {f.label} <span style={{ opacity: 0.7 }}>{f.n}</span>
             </button>
           );
         })}
-        {filtreAmb.size > 0 && (
-          <button className="text-xs" style={{ color: "var(--ink-dim)" }} onClick={() => setFiltreAmb(new Set())}>
-            tout
+
+        {factAmb.length > 0 && factKinds.length > 0 && (
+          <span aria-hidden style={{ color: "var(--line)" }}>│</span>
+        )}
+        {factAmb.map((f) => {
+          const on = filtreAmb.has(f.id);
+          return (
+            <button key={f.id} onClick={() => basculeAmbFiltre(f.id)} aria-pressed={on} title={f.aide}
+              className="text-xs rounded-full px-3 py-1"
+              style={{
+                border: `1px solid ${on ? "var(--gold)" : "var(--line)"}`,
+                color: on ? "var(--gold)" : "var(--ink-dim)",
+                background: on ? "color-mix(in srgb, var(--gold) 10%, transparent)" : "transparent",
+              }}>
+              {f.label} <span style={{ opacity: 0.7 }}>{f.n}</span>
+            </button>
+          );
+        })}
+
+        {nVivier > 0 && (
+          <button onClick={() => setVivierSeul((v) => !v)} aria-pressed={vivierSeul}
+            className="text-xs rounded-full px-3 py-1"
+            title="Les ressources qui ne sont liées à aucun poème — le vivier partagé"
+            style={{
+              border: `1px solid ${vivierSeul ? "var(--gold)" : "var(--line)"}`,
+              color: vivierSeul ? "var(--gold)" : "var(--ink-dim)",
+              background: vivierSeul ? "color-mix(in srgb, var(--gold) 10%, transparent)" : "transparent",
+            }}>
+            vivier commun <span style={{ opacity: 0.7 }}>{nVivier}</span>
           </button>
         )}
       </div>
 
+      {/* Une invitation à agir, pas un constat. L'ancienne formulation — « invisibles aux
+          filtres » — décrivait un problème sans donner le geste qui le règle. */}
       {(aClasser > 0 || sansAmbiance > 0) && (
-        <p className="text-xs mb-3" style={{ color: "var(--gold)" }}>
-          {aClasser > 0 && <>{aClasser} ressource{aClasser > 1 ? "s" : ""} que le rendu ne verra pas tant qu&apos;un poème ne leur est pas lié. </>}
-          {sansAmbiance > 0 && <>{sansAmbiance} ressource{sansAmbiance > 1 ? "s" : ""} du vivier sans ambiance — invisible{sansAmbiance > 1 ? "s" : ""} aux filtres.</>}
-        </p>
+        <div className="flex gap-3 items-baseline flex-wrap mb-3 text-xs">
+          {sansAmbiance > 0 && (
+            <button onClick={() => setAClasserSeul((v) => !v)} aria-pressed={aClasserSeul}
+              style={{ color: "var(--gold)", textDecoration: "underline" }}>
+              → {sansAmbiance} ressource{sansAmbiance > 1 ? "s" : ""} à classer par ambiance
+            </button>
+          )}
+          {aClasser > 0 && (
+            <span style={{ color: "var(--ink-dim)" }}>
+              {aClasser} sans poème lié — le rendu ne {aClasser > 1 ? "les" : "la"} verra pas.
+            </span>
+          )}
+        </div>
       )}
 
       {queue.length > 0 && (
@@ -296,9 +402,12 @@ export default function Ressources() {
           <div style={{ minWidth: 900 }}>
             <div className="grid text-xs" style={{ gridTemplateColumns: COLS, borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
               {([["title", "Nom"], ["kind", "Type"], ["amb", "Ambiances"], ["poem", "Poème"], ["size_bytes", "Taille"], ["created_at", "Ajouté"]] as const).map(([c, l]) => (
+                // Le tri reste dans les en-têtes : c'est là qu'on le cherche, et une commande
+                // de tri séparée aurait rajouté au fouillis qu'on vient d'enlever.
                 <button key={c} onClick={() => trier(c)} className="text-left px-3 py-2"
+                  aria-label={`Trier par ${l}${tri.col === c ? (tri.sens === 1 ? ", croissant" : ", décroissant") : ""}`}
                   style={{ color: tri.col === c ? "var(--ink)" : "var(--ink-dim)", cursor: "pointer" }}>
-                  {l}{tri.col === c ? (tri.sens === 1 ? " ↑" : " ↓") : ""}
+                  {l}<span aria-hidden>{tri.col === c ? (tri.sens === 1 ? " ↑" : " ↓") : ""}</span>
                 </button>
               ))}
               <div />

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, bucketFor } from "@/lib/supabase";
+import { AMBIANCES, LIBELLE_AMBIANCE, ambiancesDe, metaAvecAmbiances } from "@/lib/ambiances";
 
 // Ressources = une base de données, pas un classeur.
 // Le type et le poème lié sont des propriétés éditables en place : avant, se tromper de type
@@ -29,7 +30,7 @@ const mo = (n?: number | null) => (n ? (n / 1e6).toFixed(1) + " Mo" : "—");
 const jour = (s: string) =>
   new Date(s).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "2-digit" });
 
-type Tri = { col: "title" | "kind" | "poem" | "size_bytes" | "created_at"; sens: 1 | -1 };
+type Tri = { col: "title" | "kind" | "amb" | "poem" | "size_bytes" | "created_at"; sens: 1 | -1 };
 
 export default function Ressources() {
   const [assets, setAssets] = useState<any[]>([]);
@@ -37,8 +38,9 @@ export default function Ressources() {
   const [q, setQ] = useState("");
   const [filtres, setFiltres] = useState<Set<string>>(new Set());
   const [filtrePoeme, setFiltrePoeme] = useState("");
+  const [filtreAmb, setFiltreAmb] = useState<Set<string>>(new Set());
   const [tri, setTri] = useState<Tri>({ col: "created_at", sens: -1 });
-  const [edit, setEdit] = useState<{ id: string; champ: "kind" | "poem" } | null>(null);
+  const [edit, setEdit] = useState<{ id: string; champ: "kind" | "poem" | "amb" } | null>(null);
   const [queue, setQueue] = useState<{ name: string; state: string; msg?: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
@@ -123,6 +125,25 @@ export default function Ressources() {
     setFiltres(s);
   }
 
+  function basculeAmbFiltre(a: string) {
+    const s = new Set(filtreAmb);
+    s.has(a) ? s.delete(a) : s.add(a);
+    setFiltreAmb(s);
+  }
+
+  // Cocher/décocher une ambiance sur une ressource. Écrit dans `meta` en préservant le reste
+  // du jsonb. Ne referme pas l'éditeur — on en coche souvent deux ou trois d'affilée.
+  async function basculeAmbiance(a: any, amb: string) {
+    const actuelles = ambiancesDe(a);
+    const suivantes = actuelles.includes(amb)
+      ? actuelles.filter((x) => x !== amb)
+      : [...actuelles, amb];
+    const meta = metaAvecAmbiances(a.meta, suivantes);
+    setAssets((L) => L.map((x) => (x.id === a.id ? { ...x, meta } : x)));  // retour immédiat
+    const { error } = await supabase.from("assets").update({ meta }).eq("id", a.id);
+    if (error) { setErr(error.message); load(); }
+  }
+
   function trier(col: Tri["col"]) {
     setTri((t) => (t.col === col ? { col, sens: (t.sens * -1) as 1 | -1 } : { col, sens: 1 }));
   }
@@ -134,22 +155,27 @@ export default function Ressources() {
       L = L.filter((a) => (a.title ?? "").toLowerCase().includes(t) || (a.poems?.title ?? "").toLowerCase().includes(t));
     }
     if (filtres.size) L = L.filter((a) => filtres.has(a.kind));
+    // Filtre par ambiance : cumulatif en OU — on cherche « quelque chose de sombre OU d'âpre »,
+    // pas une ressource qui serait les deux à la fois.
+    if (filtreAmb.size) L = L.filter((a) => ambiancesDe(a).some((x) => filtreAmb.has(x)));
     if (filtrePoeme === "__vivier") L = L.filter((a) => !a.poem_id);
     else if (filtrePoeme) L = L.filter((a) => a.poem_id === filtrePoeme);
     const v = (a: any) =>
       tri.col === "poem" ? (a.poems?.title ?? "") :
       tri.col === "kind" ? KIND_LABEL[a.kind] ?? a.kind :
+      tri.col === "amb" ? ambiancesDe(a).join(",") :
       tri.col === "size_bytes" ? (a.size_bytes ?? 0) : (a[tri.col] ?? "");
     return [...L].sort((a, b) => {
       const x = v(a), y = v(b);
       if (x === y) return 0;
       return (x > y ? 1 : -1) * tri.sens;
     });
-  }, [assets, q, filtres, filtrePoeme, tri]);
+  }, [assets, q, filtres, filtreAmb, filtrePoeme, tri]);
 
   const total = assets.reduce((s, a) => s + (a.size_bytes ?? 0), 0);
   const aClasser = assets.filter((a) => !a.poem_id && !VIVIER.includes(a.kind)).length;
-  const COLS = "minmax(180px,2.2fr) 130px minmax(120px,1.2fr) 90px 100px 96px";
+  const sansAmbiance = assets.filter((a) => VIVIER.includes(a.kind) && ambiancesDe(a).length === 0).length;
+  const COLS = "minmax(170px,2fr) 118px minmax(150px,1.6fr) minmax(110px,1fr) 84px 92px 88px";
 
   return (
     <div
@@ -199,10 +225,34 @@ export default function Ressources() {
         </label>
       </div>
 
-      {aClasser > 0 && (
+      {/* filtre par ambiance — le vocabulaire est fermé (lib/ambiances.ts) */}
+      <div className="flex gap-2 items-center flex-wrap mb-3">
+        <span className="label" style={{ marginRight: 4 }}>Ambiance</span>
+        {AMBIANCES.map((a) => {
+          const on = filtreAmb.has(a.id);
+          return (
+            <button key={a.id} onClick={() => basculeAmbFiltre(a.id)} aria-pressed={on} title={a.aide}
+              className="text-xs rounded-full px-3 py-1"
+              style={{
+                border: `1px solid ${on ? "var(--gold)" : "var(--line)"}`,
+                color: on ? "var(--gold)" : "var(--ink-dim)",
+                background: on ? "color-mix(in srgb, var(--gold) 10%, transparent)" : "transparent",
+              }}>
+              {a.label}
+            </button>
+          );
+        })}
+        {filtreAmb.size > 0 && (
+          <button className="text-xs" style={{ color: "var(--ink-dim)" }} onClick={() => setFiltreAmb(new Set())}>
+            tout
+          </button>
+        )}
+      </div>
+
+      {(aClasser > 0 || sansAmbiance > 0) && (
         <p className="text-xs mb-3" style={{ color: "var(--gold)" }}>
-          {aClasser} ressource{aClasser > 1 ? "s" : ""} que le rendu ne verra pas tant qu&apos;un poème
-          ne leur est pas lié (voix et vidéos montées doivent être rattachées).
+          {aClasser > 0 && <>{aClasser} ressource{aClasser > 1 ? "s" : ""} que le rendu ne verra pas tant qu&apos;un poème ne leur est pas lié. </>}
+          {sansAmbiance > 0 && <>{sansAmbiance} ressource{sansAmbiance > 1 ? "s" : ""} du vivier sans ambiance — invisible{sansAmbiance > 1 ? "s" : ""} aux filtres.</>}
         </p>
       )}
 
@@ -223,9 +273,9 @@ export default function Ressources() {
       {/* table */}
       <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--panel)" }}>
         <div style={{ overflowX: "auto" }}>
-          <div style={{ minWidth: 720 }}>
+          <div style={{ minWidth: 900 }}>
             <div className="grid text-xs" style={{ gridTemplateColumns: COLS, borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
-              {([["title", "Nom"], ["kind", "Type"], ["poem", "Poème"], ["size_bytes", "Taille"], ["created_at", "Ajouté"]] as const).map(([c, l]) => (
+              {([["title", "Nom"], ["kind", "Type"], ["amb", "Ambiances"], ["poem", "Poème"], ["size_bytes", "Taille"], ["created_at", "Ajouté"]] as const).map(([c, l]) => (
                 <button key={c} onClick={() => trier(c)} className="text-left px-3 py-2"
                   style={{ color: tri.col === c ? "var(--ink)" : "var(--ink-dim)", cursor: "pointer" }}>
                   {l}{tri.col === c ? (tri.sens === 1 ? " ↑" : " ↓") : ""}
@@ -253,6 +303,41 @@ export default function Ressources() {
                       className="text-xs rounded-full px-2 py-0.5"
                       style={{ border: "1px solid var(--line)", color: "var(--ink-dim)" }}>
                       {KIND_LABEL[a.kind] ?? a.kind}
+                    </button>
+                  )}
+                </div>
+
+                <div className="px-3 py-2">
+                  {edit?.id === a.id && edit.champ === "amb" ? (
+                    <div className="flex gap-1 flex-wrap items-center">
+                      {AMBIANCES.map((amb) => {
+                        const on = ambiancesDe(a).includes(amb.id);
+                        return (
+                          <button key={amb.id} title={amb.aide} onClick={() => basculeAmbiance(a, amb.id)}
+                            className="text-xs rounded-full px-2 py-0.5"
+                            style={{
+                              border: `1px solid ${on ? "var(--gold)" : "var(--line)"}`,
+                              color: on ? "var(--gold)" : "var(--ink-dim)",
+                              background: on ? "color-mix(in srgb, var(--gold) 12%, transparent)" : "transparent",
+                            }}>
+                            {amb.label}
+                          </button>
+                        );
+                      })}
+                      <button className="text-xs ml-1" style={{ color: "var(--ink-dim)" }} onClick={() => setEdit(null)}>ok</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setEdit({ id: a.id, champ: "amb" })} className="text-xs text-left w-full">
+                      {ambiancesDe(a).length === 0
+                        ? <span style={{ color: "var(--ink-dim)" }}>+ ambiance</span>
+                        : <span className="flex gap-1 flex-wrap">
+                            {ambiancesDe(a).map((x) => (
+                              <span key={x} className="rounded-full px-2 py-0.5"
+                                style={{ border: "1px solid var(--line)", color: "var(--gold)" }}>
+                                {LIBELLE_AMBIANCE[x] ?? x}
+                              </span>
+                            ))}
+                          </span>}
                     </button>
                   )}
                 </div>

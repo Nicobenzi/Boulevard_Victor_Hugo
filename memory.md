@@ -317,8 +317,25 @@ de maîtres (« ça fait vieux ») ni le fond actuel.
 > les ambiances peuvent y vivre sans migration. **Leçon : lire le schéma avant d'annoncer une
 > migration.** Le lot 2 n'est plus bloqué que par le vocabulaire d'ambiance, qui dépend de Nicolas.
 
-**Reste des lots de la refonte** : lot 2 (ambiances — plus de migration nécessaire, seul le
-vocabulaire manque), lot 3 (colonne `à valider` — migration réelle, c'est un état humain).
+7. **Lot 2 livré — le vivier a son vocabulaire.** Les 9 ambiances sont figées dans
+   `lib/ambiances.ts` : `nuit braise orage vertige melancolie tendresse apre solennel vide`.
+   Identifiants sans accents (un mot-clé accentué se tape et se compare mal), libellés accentués
+   à l'affichage. Rangées dans `assets.meta.ambiances` — **aucune migration**. Dans Ressources :
+   filtre par ambiance (cumulatif en OU : on cherche « sombre OU âpre », pas les deux à la fois)
+   et édition en place sur chaque ligne. Un compteur signale les ressources du vivier sans
+   ambiance, invisibles aux filtres.
+   ⚠ **Ne pas étendre le vocabulaire sans décision explicite** : une liste qui grossit au fil de
+   l'eau redevient du texte libre, et le filtre ne filtre plus rien.
+
+**Reste de la refonte** : lot 3 (colonne `à valider` — migration réelle, c'est un état humain,
+le seul qui ne se dérive pas des données).
+
+**Premier vivier constitué le 23/08** : 8 clips Mixkit dans `metrage/` (hors git), nommés
+`<ambiance>-<sujet>-<idMixkit>.mp4`, provenance et licence dans `metrage/SOURCES.md`.
+⚠ Sept sont en 1280×720 (« HD ready ») : recadrés en 9:16 ils ne gardent que **31 % de la
+largeur** et sont agrandis **2,7×**. Les deux clips nativement verticaux (720×1280) n'ont ce
+problème qu'à 1,5× et gardent tout le cadre. **Règle : chercher d'abord un clip vertical**,
+sinon la plus haute résolution proposée sur la page — jamais « HD ready » par défaut.
 
 **Constaté le 23/08** : trois exports coexistent pour *Les Conquérants* (`cinetique`,
 `voix seule`, `avec musique`), soit ~12 Mo pour une vidéo, alors que la règle « un seul export »

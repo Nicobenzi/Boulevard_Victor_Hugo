@@ -7,10 +7,14 @@
 > est un studio de poèmes lus en vidéo verticale, sans copropriété, sans syndic, sans gestionnaire.
 > Le 23/08, une session a passé quatre échanges à parler d'AG et de tantièmes avant que Nicolas ne
 > la corrige. **Ne rien déduire de l'outillage installé.**
-> Les six plugins `coprovia-*` sont désormais **désactivés pour ce projet** via
-> `.claude/settings.json` (`enabledPlugins`). S'ils réapparaissent dans la liste des skills
-> disponibles, c'est que le réglage n'est pas pris en compte : le signaler à Nicolas.
-> Les skills `coprovia-*` ne s'appliquent pas ; `corrige-et-livre` et `cadre-et-specifie` sont
+> ⚠ **`.claude/settings.json` ne les désactive PAS** — vérifié le 24/08, inutile de s'en étonner
+> ni de le re-signaler. Ces skills sont **attachées côté Claude.ai** (servies depuis un chemin de
+> session `…/rpm/plugin_*/skills/`, et `list_plugins` ne renvoie aucun plugin installé
+> localement), alors que `enabledPlugins` est un mécanisme Claude Code qui lit la config du projet
+> sur disque. **Aucun fichier du dépôt ne peut les éteindre** ; il faut les détacher dans les
+> réglages du projet, côté app Claude. Le fichier est conservé comme trace du diagnostic.
+> **En attendant : les ignorer.** Les skills `coprovia-*` ne s'appliquent pas ;
+> `corrige-et-livre` et `cadre-et-specifie` sont
 > utilisables mais écrits pour Coprovia — appliquer les conventions **de ce fichier**, pas les leurs
 > (ici : tout en client components, pas de Server Components, pas de design system Paprika,
 > repo `Nicobenzi/Boulevard_Victor_Hugo`).
@@ -36,10 +40,14 @@ Le mettre à jour après toute décision structurante.
   nécessité réelle. Tailwind v4 (`@tailwindcss/postcss`).
 - **Base** : Supabase `cjnnzmfbqybgcmmvrodx` (org perso, Free).
   Tables : `profiles`, `allowed_emails`, `poems`, `assets`, `publications`, `render_jobs`,
-  `inspirations`. Buckets privés : `videos`, `audios`, `images`.
-  ⚠ MCP Supabase : `execute_sql` est en **lecture seule**, mais **`apply_migration` écrit** —
-  le DDL passe directement, les données (INSERT/UPDATE) doivent aller par l'éditeur SQL du
-  dashboard. Produire des scripts collables et idempotents.
+  `inspirations`, `notes`. Buckets privés : `videos`, `audios`, `images`.
+  ⚠ Le bucket `videos` contient **aussi le métrage** : les plans du vivier et les vidéos finies
+  y cohabitent (`bucketFor` envoie tout `video/*` là).
+  ⚠ MCP Supabase : `execute_sql` est en **lecture seule**, mais **`apply_migration` écrit — le
+  DDL comme les données** (vérifié le 24/08 : trois migrations `INSERT`/`UPDATE` sont passées).
+  Écrire des migrations idempotentes. **Aucun accès aux buckets** en revanche : supprimer une
+  ligne `assets` depuis une session laisserait le fichier orphelin — passer par le bouton de
+  Ressources, qui supprime la ligne **puis** le fichier.
 - **Déploiement** : Vercel (team `nicobenzis-projects`), auto à chaque push sur `main`.
 - **Usine de rendu** : `.github/workflows/render.yml` (cron 2 h + manuel) → `pipeline/render.py`
   (faster-whisper, alignement difflib sur `poems.body`, ffmpeg). Python 3.11.
@@ -49,7 +57,11 @@ Le mettre à jour après toute décision structurante.
   Poèmes + Publications), Ressources, Veille. `/poemes`, `/publications`, `/bibliotheque`,
   `/calendrier` et `/publier` sont des redirections.
   L'étape d'un poème est dérivée dans `lib/etapes.ts` ; la caption vient de `lib/caption.ts`
-  (gabarit déterministe, jamais de LLM). Spec : `docs/specs/spec-refonte-ux-atelier-2026-08-23.md`.
+  (gabarit déterministe, jamais de LLM) mais **`poems.caption` prime si elle est renseignée**.
+  **Le plan de fond et la musique se choisissent au montage**, dans la fiche du poème, et sont
+  portés par le rendu (`render_jobs.broll_asset_id`, `music_asset_id`) — pas par le poème, pour
+  qu'un même plan puisse resservir. Specs dans `docs/specs/` (`…-atelier-2026-08-23`,
+  `…-montage-dans-atelier-2026-08-24`, `…-notes-atelier-2026-08-24`).
 
 ## Règles dures
 - **RLS sur toute nouvelle table**, policy via `public.is_member()`. Accès = allowlist `allowed_emails`.
@@ -66,7 +78,16 @@ Le mettre à jour après toute décision structurante.
   - Contrainte de contraste : texte ≥ 4,5 et **bordures/limites ≥ 3,0** (c'est ce second seuil qui
     manquait — cf. memory.md).
 - Sous-titres vidéo = **texte canonique** de `poems.body`, jamais la transcription brute.
-  Texte collationné sur Wikisource, apostrophes typographiques `’`.
+  Texte collationné sur une édition de référence, apostrophes typographiques `’`.
+  ⚠ Wikisource ne répond pas aux requêtes automatisées (réponses vides) : passer par une source
+  secondaire, et le dire.
+- **Tout rendu exige un fond fourni**, il n'y a plus de fond de secours. Et **le style détermine
+  le type de fond** : seul `cinetique` lit du métrage, `musee` et `galerie` veulent une image
+  fixe. Le bouton « Générer » applique cette règle — ne pas la retirer.
+- **Toute action qui n'existe qu'au glisser-déposer n'existe pas** pour qui n'a pas de souris :
+  lui donner un équivalent clavier.
+- **Examiner le `error` de toute écriture Supabase.** Une erreur avalée produit un bouton qui a
+  l'air cassé, et fait chercher au mauvais endroit pendant une journée.
 - **Un seul export**, avec musique (la voix seule ne servait qu’au flux « ajouter un son » de TikTok, inutilisé — et doublait le stockage).
 - Migrations : ne jamais modifier une migration appliquée ; toujours en créer une nouvelle
   dans `supabase/migrations/`.
@@ -84,7 +105,20 @@ Le mettre à jour après toute décision structurante.
 ## Commandes
 ```bash
 npm run dev            # développement
-npm run build          # vérification avant push
+npm run build          # vérification avant push — SUR LE MAC, cf. ci-dessous
 gh workflow run render-videos --repo Nicobenzi/Boulevard_Victor_Hugo   # rendu manuel
-gh run watch --repo Nicobenzi/Boulevard_Victor_Hugo                    # suivi
+gh run watch <run-id>  --repo Nicobenzi/Boulevard_Victor_Hugo          # suivi (sans id : menu)
+~/.venvs/bvh/bin/python pipeline/make_music.py ~/Desktop/musiques-bvh 120   # banque de nappes
 ```
+
+## Le bac à sable Linux de la session — trois limites
+
+- ⚠ **Il ne peut pas builder** : les `node_modules` sont installés pour macOS et son disque est
+  plein. `npx tsc --noEmit` y fonctionne et valide le typage, mais **`npm run build` doit tourner
+  sur le Mac avant tout push**.
+- ⚠ **Ne pas y lancer de `git`** : ça laisse un `.git/index.lock` orphelin que la session ne peut
+  pas supprimer, et le `git commit` suivant échoue côté Mac (« Another git process seems to be
+  running »). Remède : `rm -f .git/index.lock`.
+- ⚠ **Toujours `git checkout main` AVANT de modifier des fichiers.** Une branche déjà mergée reste
+  sélectionnée après un merge sur GitHub, et les commits partent dessus sans prévenir.
+- Python local : `~/.venvs/bvh` (macOS refuse `pip3 install` dans le Python système, PEP 668).

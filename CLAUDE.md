@@ -37,7 +37,8 @@ Le mettre à jour après toute décision structurante.
 - **Base** : Supabase `cjnnzmfbqybgcmmvrodx` (org perso, Free).
   Tables : `profiles`, `allowed_emails`, `poems`, `assets`, `publications`, `render_jobs`,
   `inspirations`. Buckets privés : `videos`, `audios`, `images`.
-  ⚠ Le MCP Supabase est en **lecture seule** : toute écriture passe par l'éditeur SQL du
+  ⚠ MCP Supabase : `execute_sql` est en **lecture seule**, mais **`apply_migration` écrit** —
+  le DDL passe directement, les données (INSERT/UPDATE) doivent aller par l'éditeur SQL du
   dashboard. Produire des scripts collables et idempotents.
 - **Déploiement** : Vercel (team `nicobenzis-projects`), auto à chaque push sur `main`.
 - **Usine de rendu** : `.github/workflows/render.yml` (cron 2 h + manuel) → `pipeline/render.py`

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase, bucketFor, PLATFORMS, STATUS_FR } from "@/lib/supabase";
-import { ETAPES, etapeDe, manqueDe, type EtapeId } from "@/lib/etapes";
+import { ETAPES, etapeDe, etapeCalculee, estForcee, manqueDe, type EtapeId } from "@/lib/etapes";
 import { genererCaption } from "@/lib/caption";
 
 // L'Atelier est une base de données de poèmes avec deux vues :
@@ -52,6 +52,7 @@ export default function Atelier() {
   const [ordre, setOrdre] = useState<EtapeId[]>(ETAPES.map((e) => e.id));
   const [repliees, setRepliees] = useState<Set<EtapeId>>(new Set());
   const [glisse, setGlisse] = useState<EtapeId | null>(null);
+  const [glisseCarte, setGlisseCarte] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -85,6 +86,32 @@ export default function Atelier() {
     const r = new Set(repliees);
     r.has(id) ? r.delete(id) : r.add(id);
     setRepliees(r); enregistrerDisposition(ordre, r);
+  }
+
+  // ————— déplacement des cartes —————
+  // Nicolas a choisi la permissivité : on peut déposer une carte dans n'importe quelle
+  // colonne, même si les données disent autre chose. La contrepartie, non négociable, est
+  // que ça se voie — marqueur sur la carte, étape calculée rappelée dans la fiche.
+  async function deposerCarte(cible: EtapeId) {
+    const id = glisseCarte;
+    if (!id) return;
+    setGlisseCarte(null);
+    const p = poems.find((x) => x.id === id);
+    if (!p) return;
+    // Déposer dans la colonne que le calcul donnait déjà = revenir au calcul, pas figer.
+    const valeur = etapeCalculee(p, ctxDe(p)) === cible ? null : cible;
+    setPoems((L) => L.map((x) => (x.id === id ? { ...x, etape_manuelle: valeur } : x)));
+    const { error } = await supabase.from("poems").update({ etape_manuelle: valeur }).eq("id", id);
+    if (error) { setErr(error.message); load(); return; }
+    flash(valeur ? "carte déplacée à la main" : "retour au calcul ✓");
+  }
+
+  async function rendreAuCalcul(id: string) {
+    setPoems((L) => L.map((x) => (x.id === id ? { ...x, etape_manuelle: null } : x)));
+    const { error } = await supabase.from("poems").update({ etape_manuelle: null }).eq("id", id);
+    if (error) { setErr(error.message); load(); return; }
+    setDraft((d: any) => ({ ...d, etape_manuelle: null }));
+    flash("retour au calcul ✓");
   }
 
   function reinitialiserDisposition() {
@@ -421,10 +448,11 @@ export default function Atelier() {
                   return (
                     <div key={id}
                       onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => deposerColonne(id)}
+                      onDrop={() => { glisseCarte ? deposerCarte(id) : deposerColonne(id); }}
                       style={{
                         width: largeur, flex: `0 0 ${largeur}px`,
-                        background: "var(--panel)", border: `1px solid ${glisse === id ? "var(--gold)" : "var(--line)"}`,
+                        background: glisseCarte ? "color-mix(in srgb, var(--gold) 5%, var(--panel))" : "var(--panel)",
+                        border: `1px solid ${glisse === id || glisseCarte ? "var(--gold)" : "var(--line)"}`,
                         borderRadius: 12, padding: repliee ? 8 : 10,
                         opacity: glisse && glisse !== id ? 0.75 : 1,
                       }}>
@@ -449,14 +477,33 @@ export default function Atelier() {
                           <div className="grid gap-2">
                             {liste.map((p) => {
                               const manque = manqueDe(p, ctxDe(p));
+                              const forcee = estForcee(p, ctxDe(p));
                               return (
-                                <button key={p.id} type="button" onClick={() => ouvrir(p)}
-                                  className="w-full text-left rounded-lg px-3 py-2.5"
-                                  style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
-                                  <div className="font-serif2 text-lg leading-tight">{p.title}</div>
-                                  <div className="text-xs mt-0.5" style={{ color: "var(--ink-dim)" }}>{p.author}</div>
-                                  {manque && <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>{manque}</div>}
-                                </button>
+                                <div key={p.id} draggable
+                                  onDragStart={(e) => { e.stopPropagation(); setGlisseCarte(p.id); }}
+                                  onDragEnd={() => setGlisseCarte(null)}
+                                  style={{ cursor: "grab", opacity: glisseCarte === p.id ? 0.4 : 1 }}>
+                                  <button type="button" onClick={() => ouvrir(p)}
+                                    className="w-full text-left rounded-lg px-3 py-2.5"
+                                    style={{
+                                      background: "var(--bg)",
+                                      border: `1px solid ${forcee ? "var(--gold)" : "var(--line)"}`,
+                                      borderLeft: forcee ? "3px solid var(--gold)" : undefined,
+                                    }}>
+                                    <div className="font-serif2 text-lg leading-tight">{p.title}</div>
+                                    <div className="text-xs mt-0.5" style={{ color: "var(--ink-dim)" }}>{p.author}</div>
+                                    {/* Le marqueur : sans lui on recréerait poems.status en silence. */}
+                                    {forcee && (
+                                      <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>
+                                        déplacée à la main — en réalité «&nbsp;
+                                        {ETAPES.find((e) => e.id === etapeCalculee(p, ctxDe(p)))?.titre.toLowerCase()}&nbsp;»
+                                      </div>
+                                    )}
+                                    {!forcee && manque && (
+                                      <div className="text-xs mt-1.5" style={{ color: "var(--gold)" }}>{manque}</div>
+                                    )}
+                                  </button>
+                                </div>
                               );
                             })}
                             {liste.length === 0 && (
@@ -591,6 +638,19 @@ export default function Atelier() {
             }}>
             <div className="flex items-center gap-3 mb-5 flex-wrap">
               <span className="label">{ETAPES.find((e) => e.id === etapeDe(poemeOuvert, ctxDe(poemeOuvert)))?.titre}</span>
+              {/* L'étape calculée reste toujours lisible : c'est ce qui empêche le forçage
+                  de devenir un mensonge silencieux. */}
+              {estForcee(poemeOuvert, ctxDe(poemeOuvert)) && (
+                <>
+                  <span className="text-xs" style={{ color: "var(--gold)" }}>
+                    déplacée à la main — les données disent «&nbsp;
+                    {ETAPES.find((e) => e.id === etapeCalculee(poemeOuvert, ctxDe(poemeOuvert)))?.titre.toLowerCase()}&nbsp;»
+                  </span>
+                  <button className="btn2 text-xs" onClick={() => rendreAuCalcul(poemeOuvert.id)}>
+                    revenir au calcul
+                  </button>
+                </>
+              )}
               <button className="btn2 text-xs ml-auto" onClick={fermer}>Fermer ✕</button>
             </div>
 

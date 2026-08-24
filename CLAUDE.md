@@ -90,7 +90,10 @@ Le mettre à jour après toute décision structurante.
   l'air cassé, et fait chercher au mauvais endroit pendant une journée.
 - **Un seul export**, avec musique (la voix seule ne servait qu’au flux « ajouter un son » de TikTok, inutilisé — et doublait le stockage).
 - Migrations : ne jamais modifier une migration appliquée ; toujours en créer une nouvelle
-  dans `supabase/migrations/`.
+  dans `supabase/migrations/`. **Écrire le fichier même pour une correction de données** —
+  appliquer par `apply_migration` sans fichier rend le geste invisible à qui relit le dépôt.
+  ⚠ `supabase db push` **n'est pas utilisable en l'état** : deux migrations du 23/08 sont au
+  dépôt sans être dans `schema_migrations` (passées par l'éditeur SQL), il les rejouerait.
 - L'avancement d'un poème est **dérivé** des données, pas lu dans `poems.status` (qui dérive).
 - Musique : 100 % générée, jamais de sample ni d'enregistrement tiers.
 - **Ambiances du vivier : vocabulaire fermé de 9 mots**, figé le 23/08 dans `lib/ambiances.ts`

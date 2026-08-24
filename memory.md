@@ -363,6 +363,15 @@ plans du vivier et les vidéos finies y cohabitent.
 Accès = allowlist `allowed_emails` + RLS `for all using (public.is_member()) with check (…)`.
 Auth = lien magique ; Site URL sur l'URL Vercel (sinon le lien renvoie vers localhost).
 
+⚠ **Le dépôt et l'historique de migrations de la base ne coïncident pas** (constaté le 24/08) :
+`init_studio_schema` et `render_jobs` n'ont **jamais eu de fichier** ; `20260823_inspirations` et
+`20260823b_broll_et_cinetique` sont **au dépôt mais absents de `schema_migrations`** (passés par
+l'éditeur SQL du dashboard avant qu'on utilise `apply_migration`). Conséquence : **`supabase db
+push` n'est pas utilisable en l'état** — il tenterait de rejouer ces deux-là. On applique par
+`apply_migration` et on écrit le fichier en parallèle. *Écrire le fichier **à chaque fois**, y
+compris pour une correction de données* : `20260824c` et `f` avaient été appliquées sans fichier,
+donc invisibles pour qui relit le dépôt — rattrapé le soir même.
+
 **Le MCP Supabase, exactement** — `execute_sql` est en **lecture seule** (`cannot execute INSERT
 in a read-only transaction`), mais **`apply_migration` écrit**, DDL **comme données : les
 migrations `20260824a`, `c` et `f` étaient des `INSERT`/`UPDATE` et sont passées.**
@@ -449,12 +458,16 @@ Les fichiers sources restent dans `metrage/` sur le Mac (hors git), provenance d
 quitte `pexels.com`, c'est payant. Et **pas de visages identifiables** : aucune autorisation des
 personnes filmées n'est garantie sur ces banques.
 
-### Livré le 24/08 — 4 PR (#20 à #23), toutes mergées
+### Livré le 24/08 — 4 PR (#20 à #23) + 2 commits directs sur `main`
 
 Accès de Charley réparé · caption sur le poème · Atelier utilisable au clavier · contrastes
 corrigés · le montage (plan + musique + aperçu) rapatrié dans l'Atelier · le fond exigé dépend du
-style · fil de notes. **Le *pourquoi* de chaque décision est en § 4, pas ici.**
-Six migrations : `20260824a` à `g`.
+style · fil de notes · **barre de Ressources refondue** (`c335ff4`, poussé directement sur `main`).
+**Le *pourquoi* de chaque décision est en § 4, pas ici.**
+
+**Sept migrations**, `20260824a` à `g` : profils manquants · `poems.caption` · échange des deux
+voix · `ON DELETE SET NULL` sur `render_jobs.video_asset_id` · `broll_asset_id` + `music_asset_id` ·
+job de l'Hymne rebasculé en cinétique · table `notes`.
 
 ### Le sujet encore ouvert : l'image
 

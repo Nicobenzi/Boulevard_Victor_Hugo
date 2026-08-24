@@ -287,8 +287,25 @@ musique) sont remplacés par le composant `Vivier` en `mode="selection"`, monté
 sous le texte du poème — tant qu'on ne clique pas « changer », l'Atelier ne charge aucune
 vignette. Ce qui est choisi s'affiche en récapitulatif (`<Miniature>`, durée, ambiances), parce
 qu'un choix doit se voir là où on l'a fait. `loadVivier` demande désormais `meta`.
-**Lot 4 (palette sur les quatre onglets) reste à faire.** Tant qu'il n'est pas passé, l'app vit
-avec deux identités : Ressources et le panneau de montage en encre, le reste tout en or.
+**Lot 4 livré le 24/08 — les quatre onglets partagent la palette.** Passés en encre : le focus et
+le survol (`globals.css`), l'onglet courant, la bascule kanban/calendrier, le survol de
+glisser-déposer, la vidéo sélectionnée, « + programmer », les filtres et les notes de Veille.
+
+⚠ **Le partage s'est révélé ternaire, pas binaire.** Il existe un troisième rôle que ni l'encre
+ni l'or ne couvraient dans la décision initiale : **l'avertissement qui n'est pas une erreur**
+(« le rendu ne part pas sans fond », « horizontal : 31 % de la largeur conservée », « il manque
+la voix »). Il reste en `--gold`, qui se lit comme un ambre. Règle complète, écrite dans
+`globals.css` :
+
+- `--encre` : sélection, focus, survol, liens, jetons actifs, contrôles ;
+- `--gold` : titres, libellés, dépôt, **et avertissements sans gravité** ;
+- `--danger` : ce qui a échoué, ou ce qui est sans retour.
+
+⚠ **Veille portait encore le défaut de contraste corrigé ailleurs le 24/08** : la couleur de
+plateforme en **texte** sur son propre aplat à 20 % — TikTok à **1,77** pour un seuil de 4,5.
+Passée à `.pastille` (la couleur devient un point, le texte reste en `--ink`). Leçon répétée :
+quand on corrige un défaut de ce genre, **le chercher partout où le motif existe**, pas seulement
+là où on l'a vu.
 
 Le défaut central n'était pas la logique de filtrage — elle est reprise au caractère près —
 mais que **la matière n'était jamais visible** : on cochait « braise » sur un nom de fichier.

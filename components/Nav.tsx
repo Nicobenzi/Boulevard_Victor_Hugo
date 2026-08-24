@@ -25,7 +25,8 @@ export default function Nav() {
             return (
               <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined}
                 style={{ color: active ? "var(--ink)" : "var(--ink-dim)",
-                  borderBottom: active ? "1px solid var(--gold)" : "1px solid transparent" }}>
+                  // L'onglet courant est une sélection, pas un titre : il passe en encre (lot 4).
+                  borderBottom: active ? "1px solid var(--encre)" : "1px solid transparent" }}>
                 {t.label}
               </Link>
             );

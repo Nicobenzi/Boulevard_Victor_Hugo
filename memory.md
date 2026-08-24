@@ -240,6 +240,32 @@ Spec : `docs/specs/spec-montage-dans-atelier-2026-08-24.md`.
   libellés accentués. Rangées dans `assets.meta.ambiances`. Du texte libre ne se filtre pas et ne
   se retrouve pas trois mois plus tard — ne pas étendre la liste sans décision de Nicolas.
 
+### Filtrer : la barre de Ressources (24/08)
+
+Constat mesuré avant de toucher : la barre affichait **14 commandes dont 10 ne pouvaient
+renvoyer que du vide** — aucune image en base, aucune ambiance renseignée. Elle annonçait une
+bibliothèque qui n'existait pas, et pour 19 fichiers faire défiler la table allait plus vite.
+
+Quatre règles retenues, valables au-delà de cet écran :
+
+- **Un seul champ qui cherche partout** — nom, type, ambiance, poème. Il doit couvrir les
+  **libellés affichés** (« métrage », « braise »), sinon le champ unique ment et il faut
+  remettre des menus à côté. C'est ce qui a permis de supprimer le déroulant des poèmes.
+- **Une facette n'existe que si elle ramène quelque chose**, et porte son compte. Une pastille
+  qui ne peut rendre que du vide est du bruit. La barre regrandit d'elle-même quand le vivier
+  se remplit — on ne règle rien « au cas où ».
+- ⚠ **Le compte d'une facette s'évalue SANS elle-même.** Sinon il répète la sélection au lieu
+  de dire ce qu'on gagnerait à cliquer ailleurs.
+- ⚠ **Une facette active ne disparaît jamais**, même à zéro résultat — sinon on ne peut plus la
+  décocher et on reste coincé sur une liste vide.
+- **Les filtres actifs se rassemblent en jetons**, avec le compte « n sur N ». Éparpillés, on en
+  oublie un et la bibliothèque paraît vide sans qu'on sache pourquoi.
+- **Un constat doit porter son geste** : « 14 sans ambiance — invisibles aux filtres » est
+  devenu un bouton qui les affiche.
+
+Le tri reste dans les **en-têtes de colonne** : c'est là qu'on le cherche, et une commande
+séparée aurait rajouté au fouillis qu'on venait d'enlever.
+
 ### Les captions
 
 - **Gabarit déterministe, sans LLM** (`lib/caption.ts`) : titre, auteur, premier vers, signature,

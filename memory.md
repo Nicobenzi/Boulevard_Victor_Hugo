@@ -182,6 +182,22 @@ L'onglet « Poèmes » mentait sur le produit, et sa fiche faisait saisir des ch
   se filtre pas et ne se retrouve pas trois mois plus tard. **Liste à trancher par Nicolas.**
 - **Caption générée par gabarit déterministe** (titre, auteur, premier vers, signature, hashtags),
   **sans LLM**, éditable ensuite.
+  → **Rediscuté et reconduit le 23/08 au soir.** Le frère de Nicolas tient depuis 2021 le compte
+  Instagram `gaya__scienza` : 594 publications de textes savants (Empédocle, Thalès, Kant,
+  Descartes, Newton, Darwin), ~376 caractères en médiane. La question s'est posée d'écrire les
+  captions dans ce registre plutôt qu'au gabarit. **Écartée** : un gabarit ne peut pas produire
+  ce genre de texte (il faut savoir qui est Heredia, ce qu'est Palos, pourquoi la Croix du Sud) —
+  il faudrait soit un LLM (coût + rupture de la règle « tout en client »), soit du travail humain.
+  Décision : **on garde le gabarit**. Le champ caption reste éditable dans l'Atelier, donc une
+  note écrite à la main peut toujours remplacer le gabarit sur un poème qui le mérite, sans
+  jamais bloquer la publication. Ne pas rouvrir sans que Nicolas le demande.
+
+- ⚠ **L'export Instagram du frère** (`posts/` ≈ 71 Mo de JPG, plus un `posts_1.html` de 1,8 Mo)
+  a été trouvé dans le dossier du dépôt le 23/08. **Le dépôt est public.** Ignoré via
+  `.gitignore`, mais un fichier ignoré reste posé au mauvais endroit : le sortir du dossier.
+  Le HTML contient **594 champs de géolocalisation** à six décimales et des métadonnées d'appareil
+  photo. Ce sont les données personnelles d'un tiers — ne rien en publier, ne rien en committer,
+  et ne pas s'en servir comme source d'images sans l'accord explicite de Charley.
 - **Pré-remplissage titre/auteur/texte depuis la voix : abandonné.** Gain réel = 2 champs ; coût =
   serveur + API payante + règle « tout en client » cassée, sur un projet à coût visé 0 €. Et le
   texte doit venir de Wikisource collationné — Whisper ne peut pas en être la source.

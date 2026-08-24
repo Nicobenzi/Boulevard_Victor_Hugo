@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { supabase, bucketFor, PLATFORMS, STATUS_FR } from "@/lib/supabase";
 import { ETAPES, etapeDe, etapeCalculee, estForcee, manqueDe, type EtapeId } from "@/lib/etapes";
 import { genererCaption, captionPour } from "@/lib/caption";
+import Vivier, { Miniature } from "@/components/Vivier";
+import { LIBELLE_AMBIANCE, ambiancesDe } from "@/lib/ambiances";
+import { dureeDe, fmtDuree } from "@/lib/vignette";
 
 // L'Atelier est une base de données de poèmes avec deux vues :
 // — kanban, groupé par étape (l'étape est DÉRIVÉE des données, jamais saisie) ;
@@ -46,6 +49,9 @@ export default function Atelier() {
   // Le vivier est COMMUN : on liste tous les plans et toutes les musiques, liés à un poème
   // ou non. C'est le sens même du vivier — un plan ressert pour plusieurs poèmes.
   const [vivier, setVivier] = useState<any[]>([]);
+  // Quel panneau de vivier est ouvert. Il se monte à la demande : tant qu'on ne choisit pas,
+  // l'Atelier ne charge pas les vignettes.
+  const [choix, setChoix] = useState<null | "broll" | "music">(null);
   const [musiques, setMusiques] = useState<any[]>([]);
   // Définition du plan choisi, lue à la volée sur la vidéo elle-même : aucune colonne ne la
   // stocke, et en ajouter une obligerait à repasser sur les fichiers déjà déposés.
@@ -295,8 +301,10 @@ export default function Atelier() {
   // Chargé une fois pour toutes, indépendamment du poème ouvert : depuis le 24/08 le plan de
   // fond et la musique se choisissent au montage, dans un vivier partagé.
   async function loadVivier() {
+    // `meta` est demandé depuis le 24/08 : il porte la vignette et la durée du récapitulatif
+    // « ce que tu as choisi ». Restreint aux deux types du montage, ça reste une petite requête.
     const { data } = await supabase.from("assets")
-      .select("id, kind, title, storage_bucket, storage_path")
+      .select("id, kind, title, storage_bucket, storage_path, meta")
       .in("kind", ["broll", "music"]).order("title");
     setVivier((data ?? []).filter((a: any) => a.kind === "broll"));
     setMusiques((data ?? []).filter((a: any) => a.kind === "music"));
@@ -545,6 +553,8 @@ export default function Atelier() {
   // seul `cinetique` lit le métrage, les deux autres veulent une image fixe. Un écran qui
   // l'ignore laisse composer un job voué à l'échec, découvert deux heures plus tard.
   const fondPret = gen.style === "cinetique" ? !!gen.broll_asset_id : !!gen.image_asset_id;
+  const planChoisi = vivier.find((a) => a.id === gen.broll_asset_id) ?? null;
+  const musiqueChoisie = musiques.find((a) => a.id === gen.music_asset_id) ?? null;
   const pubsOuvert = open ? pubs.filter((x) => (x.poems?.id ?? x.poem_id) === open) : [];
 
   const firstDay = (month.getDay() + 6) % 7;
@@ -924,13 +934,34 @@ export default function Atelier() {
                   </label>
                 )}
               </div>
+              {/* ————— le montage : on choisit dans le vivier, pas dans une liste de noms —————
+                  Jusqu'au 24/08, le plan de fond se choisissait dans un <select> de noms de
+                  fichiers : `1756042931_0_IMG_4471.mp4`. Le vivier était filtrable dans
+                  Ressources — là où on ne choisit pas — et muet ici, là où se prend la seule
+                  décision artistique qui reste une fois le rendu automatisé.
+                  C'est le MÊME composant que la page Ressources, en mode sélection. */}
               <div>
-                <label className="label mb-1 block" htmlFor="champ-plan">Plan de fond</label>
-                <select id="champ-plan" value={gen.broll_asset_id}
-                  onChange={(e) => { setGen({ ...gen, broll_asset_id: e.target.value }); mesurerPlan(e.target.value); }}>
-                  <option value="">{vivier.length ? "— choisir un plan —" : "— aucun plan disponible —"}</option>
-                  {vivier.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
-                </select>
+                <div className="label mb-1">Plan de fond</div>
+                {planChoisi ? (
+                  <div className="flex gap-2 items-center">
+                    <Miniature a={planChoisi} taille={64} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="text-sm truncate" title={planChoisi.title}>{planChoisi.title}</div>
+                      <div className="text-xs truncate" style={{ color: "var(--ink-dim)" }}>
+                        {[fmtDuree(dureeDe(planChoisi)),
+                          ambiancesDe(planChoisi).map((x) => LIBELLE_AMBIANCE[x] ?? x).join(", ")]
+                          .filter(Boolean).join(" · ") || "sans ambiance"}
+                      </div>
+                    </div>
+                    <button className="btn2 text-xs" aria-expanded={choix === "broll"}
+                      onClick={() => setChoix(choix === "broll" ? null : "broll")}>changer</button>
+                  </div>
+                ) : (
+                  <button className="btn2 text-xs" disabled={!vivier.length} aria-expanded={choix === "broll"}
+                    onClick={() => setChoix(choix === "broll" ? null : "broll")}>
+                    {vivier.length ? "choisir un plan" : "aucun plan disponible"}
+                  </button>
+                )}
                 {/* Un plan horizontal recadré en 9:16 ne garde que 31 % de sa largeur et
                     s'agrandit 2,7× (memory.md § 6). On l'autorise, on le dit. */}
                 {defPlan && (
@@ -948,17 +979,61 @@ export default function Atelier() {
                 )}
               </div>
               <div>
-                <label className="label mb-1 block" htmlFor="champ-musique">Musique</label>
-                <select id="champ-musique" value={gen.music_asset_id}
-                  onChange={(e) => setGen({ ...gen, music_asset_id: e.target.value })}>
-                  <option value="">— nappe générée —</option>
-                  {musiques.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
-                </select>
+                <div className="label mb-1">Musique</div>
+                {musiqueChoisie ? (
+                  <div className="flex gap-2 items-center">
+                    <Miniature a={musiqueChoisie} taille={64} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="text-sm truncate" title={musiqueChoisie.title}>{musiqueChoisie.title}</div>
+                      <div className="text-xs truncate" style={{ color: "var(--ink-dim)" }}>
+                        {[fmtDuree(dureeDe(musiqueChoisie)),
+                          ambiancesDe(musiqueChoisie).map((x) => LIBELLE_AMBIANCE[x] ?? x).join(", ")]
+                          .filter(Boolean).join(" · ") || "sans ambiance"}
+                      </div>
+                    </div>
+                    <button className="btn2 text-xs" aria-expanded={choix === "music"}
+                      onClick={() => setChoix(choix === "music" ? null : "music")}>changer</button>
+                  </div>
+                ) : (
+                  <button className="btn2 text-xs" aria-expanded={choix === "music"}
+                    onClick={() => setChoix(choix === "music" ? null : "music")}>
+                    {musiques.length ? "choisir une nappe" : "aucune nappe — une nappe sera générée"}
+                  </button>
+                )}
                 <p className="text-xs mt-1" style={{ color: "var(--ink-dim)" }}>
                   Sous la voix, à −21 LUFS. Une musique trop courte est rebouclée.
+                  {!gen.music_asset_id && " Aucune choisie : une nappe est générée."}
                 </p>
               </div>
             </div>
+
+            {/* Le panneau se monte à la demande, sous le texte du poème qui reste à l'écran :
+                on lit les vers et on voit les plans en même temps. Un choix le referme —
+                on en choisit un, pas trois. */}
+            {choix && (
+              <div className="card mb-4">
+                <div className="flex items-baseline gap-3 mb-2">
+                  <span className="label">{choix === "broll" ? "Le vivier — métrages" : "Le vivier — nappes"}</span>
+                  <button className="btn-icone ml-auto" aria-label="Fermer le vivier"
+                    onClick={() => setChoix(null)}>✕</button>
+                </div>
+                <Vivier
+                  mode="selection"
+                  compact
+                  kinds={[choix]}
+                  poemId={poemeOuvert.id}
+                  valeur={choix === "broll" ? (gen.broll_asset_id || null) : (gen.music_asset_id || null)}
+                  onChoisir={(id) => {
+                    if (choix === "broll") { setGen({ ...gen, broll_asset_id: id ?? "" }); if (id) mesurerPlan(id); else setDefPlan(null); }
+                    else setGen({ ...gen, music_asset_id: id ?? "" });
+                    if (id) setChoix(null);
+                  }}
+                />
+                <p className="text-xs mt-2" style={{ color: "var(--ink-dim)" }}>
+                  Il manque quelque chose ? Dépose-le dans <strong>Ressources</strong> — il apparaîtra ici.
+                </p>
+              </div>
+            )}
 
             {draft.body?.trim() && gen.audio_asset_id && (
               <div className="border-t pt-4 mb-4" style={{ borderColor: "var(--line)" }}>

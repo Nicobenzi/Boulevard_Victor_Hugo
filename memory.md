@@ -282,9 +282,13 @@ fichier, état vide, jauge qui propose le tri par poids au-dessus de 90 %.
 ⚠ **Un échec d'`insert` après un `upload` réussi retire le fichier du stockage.** Sinon il
 consomme le quota sans apparaître nulle part — même raisonnement que l'ordre base-puis-stockage
 de la suppression.
-**Lots 3 (panneau de l'Atelier) et 4 (palette sur les quatre onglets) restent à faire.** Tant que
-le lot 4 n'est pas passé, l'app vit avec deux identités : Ressources en encre, les trois autres
-onglets tout en or.
+**Lot 3 livré le 24/08** : les deux `<select>` de noms de fichiers du montage (plan de fond,
+musique) sont remplacés par le composant `Vivier` en `mode="selection"`, monté **à la demande**
+sous le texte du poème — tant qu'on ne clique pas « changer », l'Atelier ne charge aucune
+vignette. Ce qui est choisi s'affiche en récapitulatif (`<Miniature>`, durée, ambiances), parce
+qu'un choix doit se voir là où on l'a fait. `loadVivier` demande désormais `meta`.
+**Lot 4 (palette sur les quatre onglets) reste à faire.** Tant qu'il n'est pas passé, l'app vit
+avec deux identités : Ressources et le panneau de montage en encre, le reste tout en or.
 
 Le défaut central n'était pas la logique de filtrage — elle est reprise au caractère près —
 mais que **la matière n'était jamais visible** : on cochait « braise » sur un nom de fichier.

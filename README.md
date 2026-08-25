@@ -25,7 +25,8 @@ pour les sous-titres : c'est lui qui est affiché, pas la transcription brute.
    - `SUPABASE_URL` : `https://cjnnzmfbqybgcmmvrodx.supabase.co`
    - `SUPABASE_SERVICE_ROLE_KEY` : dashboard Supabase → Project Settings → API Keys →
      `service_role` (⚠️ secrète, ne jamais la mettre dans le code).
-2. **Vercel** — le projet `novalis` doit être lié à ce repo pour
+2. **Vercel** — le projet `novalis` (servi sur `boulevard-victor-hugo.vercel.app` : l'auto-domaine
+   `novalis.vercel.app` est pris par un tiers) doit être lié à ce repo pour
    déployer à chaque push (fait via Claude, ou : vercel.com → Project → Settings → Git).
 
 ## Développement local

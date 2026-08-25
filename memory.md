@@ -471,12 +471,21 @@ Spec : `docs/specs/spec-notes-atelier-2026-08-24.md`. Table `notes`, migration `
 
 | Élément | Détail |
 |---|---|
-| App | https://novalis.vercel.app |
+| App | https://boulevard-victor-hugo.vercel.app — ⚠ **l'URL garde l'ancien nom** |
 | Vercel | team `nicobenzis-projects` (Pro), projet `novalis`, deploy auto sur `main` |
 | Repo | github.com/Nicobenzi/Novalis — **public** (Actions gratuit et illimité) |
 | Supabase | projet `cjnnzmfbqybgcmmvrodx`, org perso (Free), région eu-west-1 |
 | Secrets Actions | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
 | Rendu | `.github/workflows/render.yml` — cron **2 h** + manuel → `pipeline/render.py` (Python 3.11) |
+
+⚠ **`novalis.vercel.app` appartient à quelqu'un d'autre** (Omnitech / Novalis Groupe, une
+entreprise de BTP en Guadeloupe — vérifié le 25/08). Le projet Vercel a bien été renommé en
+`novalis`, mais Vercel n'a donc pas pu réattribuer l'auto-domaine et a conservé les alias
+`boulevard-victor-hugo*.vercel.app`. Ne pas « corriger » cette ligne en supposant que l'URL
+suit le nom du projet : elle ne le suit pas, et ne le suivra pas. Pour une URL au nouveau nom
+il faudra ajouter un alias libre à la main (`novalis-studio`, `studio-novalis` et
+`novalis-poemes` l'étaient le 25/08). Sans enjeu réel : l'app est un outil privé derrière
+l'allowlist, personne ne tape cette adresse.
 
 Tables : `profiles`, `allowed_emails`, `poems`, `assets`, `publications`, `render_jobs`,
 `inspirations`, **`notes`**. Buckets privés : `videos`, `audios`, `images`.

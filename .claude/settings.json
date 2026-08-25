@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "Boulevard Victor Hugo n'est PAS Coprovia. Les plugins coprovia-* sont installes au niveau",
+    "Novalis n'est PAS Coprovia. Les plugins coprovia-* sont installes au niveau",
     "utilisateur, donc charges dans toutes les sessions : leurs ~60 descriptions de skills",
     "(syndic, AG, tantiemes, copropriete) arrivent dans le contexte avant toute lecture du projet",
     "et ont deja fait deriver une session le 23/08/2026. On les eteint ici, pour ce projet",

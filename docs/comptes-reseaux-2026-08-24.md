@@ -1,7 +1,9 @@
 # Ouvrir les comptes — Instagram, TikTok, YouTube
 
-- Date : 2026-08-24
+- Date : 2026-08-24 — **pseudos réécrits le 2026-08-25**, le projet s'appelle désormais *Novalis*.
 - Décidé avec Nicolas : les trois plateformes, une adresse mail dédiée au projet, profil Créateur.
+- ⚠ Aucun compte n'était ouvert au moment du changement de nom : rien à migrer, tout est à créer
+  directement sous le nouveau nom.
 
 > ⚠ **Ce dépôt est PUBLIC.** Aucun mot de passe, aucun jeton, aucune adresse de récupération ne
 > doit apparaître ici ni dans aucun fichier du dossier. Les identifiants vont dans un
@@ -24,18 +26,22 @@ dépendre ni de la boîte de Nicolas ni de celle de Charley.
 
 ## 2. Le pseudo — le même partout
 
-**Premier choix : `boulevardvictorhugo`** (19 caractères, tient sur les trois : Instagram
-autorise 30, TikTok 24, YouTube 30).
+**Premier choix : `novalis`** (7 caractères, large sur les trois : Instagram autorise 30,
+TikTok 24, YouTube 30).
 
-Si pris, dans cet ordre — et **prendre le même sur les trois**, quitte à renoncer au premier
-choix sur une plateforme où il est libre. Un compte qu'on ne retrouve pas sous le même nom
-d'une application à l'autre perd la moitié de son intérêt.
+⚠ **Il sera très probablement pris.** Novalis est le nom de plume d'un poète romantique allemand
+connu, et un pseudo de sept lettres sur des plateformes ouvertes depuis dix ans a peu de chances
+d'être libre. Vérifier, mais partir du principe qu'on ira sur un repli — et **prendre le même sur
+les trois**, quitte à renoncer au premier choix sur une plateforme où il est libre. Un compte
+qu'on ne retrouve pas sous le même nom d'une application à l'autre perd la moitié de son intérêt.
 
-1. `boulevard.victorhugo`
-2. `bd.victorhugo`
-3. `boulevardvhugo`
+Dans cet ordre :
 
-**Nom affiché**, partout : `Boulevard Victor Hugo`.
+1. `novalis.poemes`
+2. `novalis.studio`
+3. `studionovalis`
+
+**Nom affiché**, partout : `Novalis`.
 
 ## 3. Instagram
 
@@ -77,7 +83,7 @@ moment de poster**. Autrement dit l'automatisation y est inutilisable pour un co
 ## 5. YouTube
 
 1. Se connecter avec l'adresse dédiée, créer une **chaîne** (pas un simple compte Google).
-2. Handle `@boulevardvictorhugo`, nom `Boulevard Victor Hugo`.
+2. Handle `@novalis` (ou le repli retenu au § 2), nom `Novalis`.
 3. Les vidéos verticales de moins de 3 min deviennent des **Shorts** automatiquement — aucun
    réglage à faire, il suffit de téléverser le fichier tel quel.
 

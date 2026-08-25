@@ -1,6 +1,7 @@
 # memory.md — mémoire du projet
 
-Dernière consolidation : **24 août 2026**, fin d'après-midi. Consolidation précédente : 23/08.
+Dernière consolidation : **25 août 2026** (matin : classement du vivier, deuxième versement de
+métrage). Précédentes : 25/08 (tôt), 24/08 (fin d'après-midi), 23/08.
 Structure : §1 le projet · §2 la DA · §3 le montage · §4 les décisions et leur *pourquoi* ·
 §5 l'infrastructure et les pièges · §6 l'état et ce qui reste.
 
@@ -17,8 +18,18 @@ en dessous.** La consolidation du 24/08 a dû démêler six contradictions nées
 
 ## 1. Le projet
 
-**Boulevard Victor Hugo** — poèmes du domaine public, lus à voix haute, montés en vidéo verticale
+**Novalis** — poèmes du domaine public, lus à voix haute, montés en vidéo verticale
 (1080×1920) pour Instagram / TikTok / YouTube. Signature de fin : « chaque jour, un poème ».
+
+> **Changement de nom, 25/08.** Le projet s'appelait **Boulevard Victor Hugo** jusqu'au 25 août
+> 2026. Il s'appelle **Novalis**. Le dossier, le dépôt, les projets Vercel et Supabase, la
+> signature gravée en fin de vidéo et le logo de la nav suivent. Le sous-titre de signature
+> (« chaque jour, un poème ») ne bouge pas, et la DA figée du § 2 non plus : seul le nom change.
+> **Deux endroits gardent volontairement l'ancien nom**, et ce ne sont pas des oublis :
+> les fichiers `Boulevard_Victor_Hugo*.m4a` déjà dans le bucket `audios` avec la migration
+> `20260824c` qui s'appuie dessus (§ 3), et le venv local `~/.venvs/bvh` dont les chemins sont
+> gravés à la création. Un troisième, `lib/caption.ts`, cite « Victor Hugo » comme **poète** —
+> il n'a jamais désigné le projet.
 
 - **Charley**, le frère de Nicolas : la voix (choix des poèmes, enregistrement des lectures).
   Il a un compte sur l'app **depuis le 24/08** — on peut donc concevoir pour deux, ce qu'a
@@ -58,10 +69,22 @@ Palette courante et ratios mesurés (24/08) :
 | `--ink-dim` | `#5f574a` | 6,4 sur page |
 | `--gold` | `#7d6021` | 5,3 page / 5,9 carte |
 | `--gold-light` | `#c9a45c` | **aplats seulement**, jamais du texte |
+| `--encre` | `#2f3b52` | **10,2 page / 11,2 carte** (ajoutée le 24/08) |
 | `--line` | `#94866a` | **3,2 page / 3,6 carte** |
 | `--danger` | `#a8322f` | (l'ancien `#d65454` tombait à 3,0) |
 
 Plus aucun hexadécimal en dur dans les composants — tout passe par les variables.
+
+**Le partage des trois couleurs, appliqué aux quatre onglets depuis le 24/08.** Il est **ternaire,
+pas binaire** — c'est ce qu'a révélé l'application, et non la décision :
+
+- `--encre` : **sélection, focus, survol, liens, jetons actifs, contrôles** ;
+- `--gold` : titres, libellés, dépôt, **et l'avertissement qui n'est pas une erreur** (« le rendu
+  ne part pas sans fond », « horizontal : 31 % de la largeur conservée ») — il se lit comme un ambre ;
+- `--danger` : ce qui a échoué, ou ce qui est sans retour.
+
+*Pourquoi* : `--gold` faisait quatre métiers à lui seul (libellés, jetons actifs, liens de poème,
+bouton Déposer) et quand tout est or, rien ne ressort. Détail en § 4.
 
 > ⚠ **La leçon de contraste, en deux temps, parce qu'elle a été apprise deux fois.**
 > **23/08** — « on voit rien » n'était pas un problème de texte (AAA partout) mais de
@@ -167,6 +190,11 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
   sur 110 s de voix donne des sous-titres inutilisables, et **l'alignement difflib ne proteste
   pas** — il retombe sur une répartition proportionnelle et sort une vidéo *plausible mais fausse*.
   Renommer à l'export serait le vrai remède.
+  ⚠ Ce nom de fichier **garde l'ancienne marque** : le dictaphone a été configuré avant le
+  changement de nom du 25/08, et les fichiers déjà déposés dans le bucket `audios` s'appellent
+  toujours `Boulevard_Victor_Hugo*.m4a`. La migration `20260824c` s'appuie dessus — ne pas la
+  « corriger ». Renommer la session du dictaphone en *Novalis* ne vaudra que pour les prochains
+  enregistrements.
 
 ---
 
@@ -198,7 +226,9 @@ titre + auteur en fondu à 1 s, vers sous-titrés au rythme de la voix, carte si
     réalité *<étape calculée>* » ; sa fiche offre « revenir au calcul ». **Ne jamais retirer ces
     marqueurs** : sans eux on recrée `poems.status`, un champ saisi qui dérive en silence.
     Déposer une carte dans la colonne que le calcul donnait déjà remet la colonne à `NULL`.
-  - `à valider` (à venir, lot 3) — c'est un état humain, il ne se dérive de rien.
+  - `à valider` — **pas encore fait**, c'est le lot 3 de la refonte UX du 23/08 (à ne pas
+    confondre avec les lots de la spec du vivier, tous livrés). État humain : « j'ai regardé la
+    vidéo et elle me va » ne se dérive d'aucune donnée. Demande une migration.
 - `lib/etapes.ts` distingue `etapeCalculee()` (les faits), `etapeDe()` (l'affiché, forçage
   prioritaire) et `estForcee()`. **Tout écran qui appelle `etapeDe()` doit sélectionner
   `etape_manuelle`** — sinon il affiche l'étape calculée pendant que le kanban montre l'autre.
@@ -239,6 +269,10 @@ Spec : `docs/specs/spec-montage-dans-atelier-2026-08-24.md`.
   `nuit braise orage vertige melancolie tendresse apre solennel vide`). Identifiants sans accents,
   libellés accentués. Rangées dans `assets.meta.ambiances`. Du texte libre ne se filtre pas et ne
   se retrouve pas trois mois plus tard — ne pas étendre la liste sans décision de Nicolas.
+  ⚠ **Le vocabulaire couvre les images ET les nappes**, et c'est pour ça qu'il est fait de mots
+  d'atmosphère et non de sujet (« mer » ne veut rien dire pour une bande son). Le classement des
+  **six nappes** n'est donc pas un extra : sans lui, la moitié du panneau de montage — celle où
+  l'on choisit la musique — reste hors de portée des filtres. Fait le 25/08 (`20260825c`).
 
 ### Filtrer : la barre de Ressources (24/08)
 
@@ -263,10 +297,11 @@ Quatre règles retenues, valables au-delà de cet écran :
 - **Un constat doit porter son geste** : « 14 sans ambiance — invisibles aux filtres » est
   devenu un bouton qui les affiche.
 
-Le tri reste dans les **en-têtes de colonne** : c'est là qu'on le cherche, et une commande
-séparée aurait rajouté au fouillis qu'on venait d'enlever.
-⚠ **Caduc depuis la refonte du 24/08** (ci-dessous) : il n'y a plus de colonnes, donc plus
-d'en-têtes. Le tri devient un groupe de boutons `aria-pressed` intitulé « Trier ».
+Ces six règles ont **survécu à la refonte du soir même** (ci-dessous) : le `useMemo` a été
+déplacé dans `useVivier()` sans être réécrit. C'est le meilleur test qu'elles étaient justes.
+En revanche la septième — « le tri reste dans les en-têtes de colonne » — est **caduque** : il
+n'y a plus de colonnes. Le tri est un groupe de boutons `aria-pressed` intitulé « Trier », dont
+le résultat est annoncé en `aria-live`.
 
 ### Le vivier se regarde et s'écoute — refonte de Ressources (24/08)
 
@@ -291,15 +326,10 @@ qu'un choix doit se voir là où on l'a fait. `loadVivier` demande désormais `m
 le survol (`globals.css`), l'onglet courant, la bascule kanban/calendrier, le survol de
 glisser-déposer, la vidéo sélectionnée, « + programmer », les filtres et les notes de Veille.
 
-⚠ **Le partage s'est révélé ternaire, pas binaire.** Il existe un troisième rôle que ni l'encre
-ni l'or ne couvraient dans la décision initiale : **l'avertissement qui n'est pas une erreur**
-(« le rendu ne part pas sans fond », « horizontal : 31 % de la largeur conservée », « il manque
-la voix »). Il reste en `--gold`, qui se lit comme un ambre. Règle complète, écrite dans
-`globals.css` :
-
-- `--encre` : sélection, focus, survol, liens, jetons actifs, contrôles ;
-- `--gold` : titres, libellés, dépôt, **et avertissements sans gravité** ;
-- `--danger` : ce qui a échoué, ou ce qui est sans retour.
+⚠ **Le partage s'est révélé ternaire à l'application, pas binaire comme décidé.** Règle complète
+en § 2 et dans `globals.css`. Ce qui manquait à la décision : **l'avertissement qui n'est pas une
+erreur**, resté en or. Leçon générale — *une règle de couleur ne se valide qu'en la passant sur
+tous les écrans ; sur le papier, il manque toujours un rôle.*
 
 ⚠ **Veille portait encore le défaut de contraste corrigé ailleurs le 24/08** : la couleur de
 plateforme en **texte** sur son propre aplat à 20 % — TikTok à **1,77** pour un seuil de 4,5.
@@ -322,17 +352,13 @@ Deux choses qu'on croyait manquer et qui ne manquaient pas :
   réécrire l'envoi en XHR. Le vrai manque est en amont : rien n'était refusé **avant** l'envoi.
   Donc un **contrôle pré-vol** (poids, type, quota restant) et un total, pas une barre.
 
-⚠ **Décision de palette — Nicolas, 24/08 : `2c bleu d'encre #2f3b52` est adopté.**
-Motif : `--gold` faisait quatre métiers (libellés, jetons actifs, liens de poème, bouton Déposer)
-— quand tout est or, rien ne ressort. Le bleu prend **tout ce qui est interactif** (sélection,
-lecture, ambiances, filtres actifs, liens) ; l'or redevient un accent d'apparat, réservé aux
-titres, aux libellés et au dépôt.
-Ratios mesurés : **10,2 sur la page** (`--bg #f7f3ec`) et 11,2 sur blanc — le plus lisible des
-trois propositions, et très au-dessus du seuil de 3,0 des surfaces.
-**Contrepartie assumée, à ne pas oublier : les quatre onglets passent à la même palette.**
-Ressources livrée seule détonnerait — c'est le risque explicite signalé par Design. Ce n'est
-donc plus un réglage local mais une évolution de la DA de l'app. La DA des **vidéos** est
-inchangée : elle reste sombre et vit dans `pipeline/render.py`.
+⚠ **Décision de palette — Nicolas, 24/08 : `2c bleu d'encre #2f3b52`**, contre l'avis du brief
+qui interdisait toute couleur nouvelle. Design proposait trois voies (vert bronze, sable & brun,
+bleu d'encre) ; le bleu est le plus lisible et le plus tranché sur le crème.
+**Contrepartie assumée : les quatre onglets passent à la même palette** — Ressources livrée seule
+aurait détonné. Ce n'était donc plus un réglage local mais une évolution de la DA **de l'app**,
+et c'est à ce titre que la décision revenait à Nicolas seul. La DA des **vidéos** est inchangée :
+elle reste sombre et vit dans `pipeline/render.py`. Détail de la règle en § 2.
 
 ⚠ **Un canvas alimenté depuis une autre origine se « tainte » et `toDataURL` lève une
 SecurityError.** Les URL signées Supabase sont une autre origine : la fabrique de vignettes
@@ -354,8 +380,13 @@ Deux réserves, tranchées à l'écriture de la spec :
   base, surtout à deux sur la même page. Le rattrapage des fichiers déjà en base se déclenche par
   un bouton, jamais tout seul.
 
-Suite attendue : `docs/specs/spec-vivier-visible-2026-08-24.md`, en trois lots — 1) le composant
-`Vivier` et la liste vignettée, 2) le dépôt pré-vol et le quota, 3) le panneau de l'Atelier.
+**La spec est soldée : quatre lots, quatre PR (#24 à #27), tous mergés le 24/08.**
+Ce qui reste n'est pas du code — voir § 6, « classer le vivier ».
+
+*Leçon de méthode, valable au-delà de cet écran* : le cycle brief → planche de design → spec →
+lots a tenu en une journée parce que chaque étape a **tranché** au lieu d'ouvrir des options.
+Les deux désaccords de Design ont amélioré le brief ; les deux réserves techniques ont été
+tranchées à l'écriture de la spec, pas laissées à l'implémentation.
 
 ### Les captions
 
@@ -440,9 +471,9 @@ Spec : `docs/specs/spec-notes-atelier-2026-08-24.md`. Table `notes`, migration `
 
 | Élément | Détail |
 |---|---|
-| App | https://boulevard-victor-hugo.vercel.app |
-| Vercel | team `nicobenzis-projects` (Pro), projet `boulevard-victor-hugo`, deploy auto sur `main` |
-| Repo | github.com/Nicobenzi/Boulevard_Victor_Hugo — **public** (Actions gratuit et illimité) |
+| App | https://novalis.vercel.app |
+| Vercel | team `nicobenzis-projects` (Pro), projet `novalis`, deploy auto sur `main` |
+| Repo | github.com/Nicobenzi/Novalis — **public** (Actions gratuit et illimité) |
 | Supabase | projet `cjnnzmfbqybgcmmvrodx`, org perso (Free), région eu-west-1 |
 | Secrets Actions | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
 | Rendu | `.github/workflows/render.yml` — cron **2 h** + manuel → `pipeline/render.py` (Python 3.11) |
@@ -485,6 +516,21 @@ dépôt public, qui n'ignore pas ce dossier. Toujours lui passer une destination
   vulnerabilities`). Next 16 utilise **Turbopack** au build et **réécrit `tsconfig.json`** :
   ces changements sont à committer, sinon l'arbre reste sale. `next-env.d.ts` est ignoré,
   `package-lock.json` est suivi.
+- ⚠ **`assets.title` vaut le NOM DU FICHIER AU DÉPÔT**, rien d'autre (`app/ressources/page.tsx` :
+  `title: file.name`). Conséquence découverte le 25/08 : les huit premiers métrages portent en
+  base leurs noms **bruts** de Mixkit, alors que `metrage/SOURCES.md` documente depuis le 23/08
+  un renommage en `ambiance-sujet-id.mp4`. Le renommage local n'avait **jamais atteint la base** :
+  les fichiers avaient été déposés avant d'être renommés. Un renommage dans `metrage/` ne vaut
+  donc que si l'on **dépose depuis ce dossier**. *Deux conventions de nommage qui divergent en
+  silence coûtent plus cher que pas de convention du tout.*
+  Corollaire, valable pour toute migration de données appariée sur un nom : **une correspondance
+  qui échoue ne lève aucune erreur** — un `update` sans ligne cible réussit. Compter après coup
+  (`raise notice`), ne jamais conclure de l'absence d'erreur. `20260825b` le fait.
+- ⚠ **Vérifier le filigrane avant d'accepter un clip de banque.** Le 25/08, un fichier reçu sous
+  le nom `video_preview_h264.mp4` (960×540) portait un filigrane **« envato » en plein centre** :
+  c'était un fichier de **prévisualisation**, pas un fichier sous licence. Le nom ne le disait
+  pas ; seule une vignette extraite au milieu du clip l'a montré. *Regarder une image de chaque
+  plan avant de le verser au vivier* — c'est aussi ce qui permet de choisir l'ambiance.
 - **Une écriture Supabase dont on n'examine pas le `error` produit un bouton qui a l'air cassé.**
   C'est ce qui a masqué pendant une journée une contrainte `NO ACTION` sur le bouton supprimer de
   Ressources. **Il y en a peut-être d'autres dans le code** — bon candidat pour une passe dédiée.
@@ -515,7 +561,16 @@ dépôt public, qui n'ignore pas ce dossier. Toujours lui passer une destination
   « Another git process seems to be running ». Remède : `rm -f .git/index.lock`.
 - ⚠ **Toujours faire `git checkout main` AVANT de modifier des fichiers.** Une branche déjà
   mergée reste sélectionnée après un merge sur GitHub ; trois commits sont partis dessus par
-  accident le 24/08, chacun rattrapé par un `cherry-pick`.
+  accident le 24/08, chacun rattrapé par un `cherry-pick`. Et le `checkout` **échoue** si des
+  modifications traînent : `git stash -u` → `checkout main && pull` → `stash pop`. Sans ça on
+  branche depuis la branche précédente sans s'en apercevoir (arrivé au lot 3 du vivier).
+- ⚠ **Tout bloc de commandes à coller commence par le `cd` absolu vers ce dépôt.** Le 24/08, un
+  bloc démarrant par `npm run build` a tourné dans **Coprovia**, l'autre projet ouvert dans le
+  même terminal : `git add` a échoué sur des chemins inexistants, `git commit` n'a donc rien
+  commité — mais `git push` a créé la branche et `gh pr create` a ouvert une PR sur le mauvais
+  dépôt. Elle a d'ailleurs révélé un vrai commit Coprovia du 21/08 qui n'avait jamais été poussé.
+  *Un bloc sans `cd` suppose un état de terminal qu'on ne contrôle pas.* Règle inscrite dans
+  `CLAUDE.md`.
 
 ---
 
@@ -536,24 +591,55 @@ Deux vidéos produites par l'usine, ~3 min de rendu chacune :
 Il ne manque qu'un plan et une musique. Suggestion : `braise-bougie` (vertical, dans la palette)
 et `nappe-la-mineur`.
 
-**Stockage** : 67,8 Mo pour 19 fichiers, sur 1 Go. Dont **38 Mo de métrage** contre 10,3 Mo pour
-l'unique vidéo finie — *le vivier pèse quatre fois plus lourd que la production, c'est lui qu'il
-faudra surveiller en premier*. Rien ne purge : `render.py` uploade et n'efface jamais.
-Plafond par fichier : **50 Mo**.
+**Stockage, mesuré le 24/08 au soir** : **107 Mo pour 22 fichiers**, sur 1 Go — 8 métrages
+(40 Mo), 5 vidéos montées (52 Mo), 6 nappes (14 Mo), 3 voix (1 Mo). **Aucune image en base.**
+Le vivier pèse presque autant que la production : *c'est lui qu'il faudra surveiller en premier*.
+Rien ne purge : `render.py` uploade et n'efface jamais. Plafond par fichier : **50 Mo**.
+
+✅ **Le vivier est classé depuis le 25/08** — 8 métrages + 6 nappes, soit **14 sur 14**, par les
+migrations `20260825a` (métrages) et `c` (nappes). Le vocabulaire figé le 23/08 sert enfin.
+Les **3 voix ne sont volontairement pas classées** : elles sont rattachées à un poème, ce n'est
+pas de la matière de vivier.
+Les ambiances des nappes ne sont pas devinées d'après la tonalité : elles reprennent la
+description que `make_music.py` attache à chaque entrée de sa `BANQUE` (« vénéneux, tendu »,
+« clair, moins pesant »…), citée en regard dans la migration pour qu'on puisse la contredire.
+
+> ⚠ **Le classement a mis deux jours à arriver pour une raison qu'il faut retenir : il n'était
+> pas *possible* de le faire depuis une session.** Une session n'a **aucun accès aux buckets** —
+> elle ne peut ni envoyer un fichier ni créer une ligne `assets`. Elle ne peut que **classer des
+> lignes déjà là**, par `apply_migration`. Le dépôt reste un geste humain, dans Ressources.
 
 **Vivier** : 8 clips de métrage, 6 nappes de musique, tous dans le vivier commun (aucun poème lié).
 Les fichiers sources restent dans `metrage/` sur le Mac (hors git), provenance dans
 `metrage/SOURCES.md`.
+
+**Deuxième versement de métrage, préparé le 25/08 — 25 clips animaliers, PAS ENCORE DÉPOSÉS.**
+Rangés et renommés dans `metrage/`, sources consignées. Il reste à les glisser dans Ressources
+**depuis ce dossier** (une session ne peut pas le faire, cf. plus bas), puis à appliquer
+`20260825b` qui les classera. ~180 Mo, ce qui porterait le stockage à ~236 Mo sur 1 Go.
+Deux choses à savoir avant de les monter :
+
+- **Ils sont tous en 1280×720 horizontal**, donc tous dans le cas de dernier recours de la règle
+  ci-dessus (31 % de largeur conservée, agrandissement 2,7×). Accepté sciemment par Nicolas.
+- **Le versement est entièrement diurne** — herbe verte, ciel bleu, eau turquoise — là où le
+  premier était nocturne et abstrait (fumée, lune, sablier, bougie) et où `ETALONNAGE` désature
+  vers une palette sombre. Aucune ambiance `nuit` dedans. **À regarder au premier montage** :
+  c'est le premier vrai test de l'étalonnage sur de la couleur vive.
 ⚠ **Mixkit interdit le téléchargement automatisé** (User Terms 9.10) : à la main.
 ⚠ Sur Pexels, des vignettes iStock **payantes** sont mêlées aux résultats gratuits — si l'URL
 quitte `pexels.com`, c'est payant. Et **pas de visages identifiables** : aucune autorisation des
 personnes filmées n'est garantie sur ces banques.
 
-### Livré le 24/08 — 4 PR (#20 à #23) + 2 commits directs sur `main`
+### Livré le 24/08 — 8 PR (#20 à #27) + 2 commits directs sur `main`
 
-Accès de Charley réparé · caption sur le poème · Atelier utilisable au clavier · contrastes
-corrigés · le montage (plan + musique + aperçu) rapatrié dans l'Atelier · le fond exigé dépend du
-style · fil de notes · **barre de Ressources refondue** (`c335ff4`, poussé directement sur `main`).
+**Matin et après-midi** (#20 à #23) : accès de Charley réparé · caption sur le poème · Atelier
+utilisable au clavier · contrastes corrigés · le montage (plan + musique + aperçu) rapatrié dans
+l'Atelier · le fond exigé dépend du style · fil de notes · **barre de Ressources refondue**
+(`c335ff4`, poussé directement sur `main`).
+
+**Soir** (#24 à #27) : les quatre lots de `spec-vivier-visible` — liste vignettée et composant
+`Vivier` · dépôt pré-vol et quota · panneau de l'Atelier · palette sur les quatre onglets.
+
 **Le *pourquoi* de chaque décision est en § 4, pas ici.**
 
 **Sept migrations**, `20260824a` à `g` : profils manquants · `poems.caption` · échange des deux
@@ -580,15 +666,20 @@ réponse actuelle, et l'étalonnage la rend viable.
 
 ### À faire
 
-1. **Monter *Bacchanale*** — plan + musique + rendu. Le plus court chemin vers une deuxième vidéo.
+1. **Déposer les 25 clips du deuxième versement** depuis `metrage/` (Ressources → « + Déposer »),
+   puis appliquer `20260825b` et vérifier son compte : **33 attendus**. Les ambiances des 14
+   fichiers déjà en base sont faites (§ ci-dessus) ; il reste **les aperçus** — bouton
+   « préparer les aperçus » — qui sont le premier vrai test de la fabrique de vignettes,
+   dépendante des codecs que le navigateur accepte de décoder.
 2. **Ouvrir les trois comptes** (`docs/comptes-reseaux-2026-08-24.md`) et **publier**. Zéro
    publication pour deux vidéos finies est le vrai retard du projet, pas la technique.
-3. **Réenregistrer la voix de l'*Hymne*** (26 kbps).
-4. **Refaire *Les Conquérants*** avec du métrage, son fond étant l'ancien générateur supprimé.
-5. **Carte d'ouverture** avec portrait d'auteur traité en N&B dur.
-6. **Cache du modèle Whisper** (~500 Mo retéléchargés à chaque exécution).
-7. **Lot 3 de la refonte** : colonne `à valider`, seul état humain restant.
-8. **Passe « erreurs avalées »** sur les écritures Supabase (§ 5).
+3. **Monter *Bacchanale*** — plan + musique + rendu. Le plus court chemin vers une 3ᵉ vidéo.
+4. **Réenregistrer la voix de l'*Hymne*** (26 kbps).
+5. **Refaire *Les Conquérants*** avec du métrage, son fond étant l'ancien générateur supprimé.
+6. **Carte d'ouverture** avec portrait d'auteur traité en N&B dur.
+7. **Cache du modèle Whisper** (~500 Mo retéléchargés à chaque exécution).
+8. **Colonne `à valider`** — lot 3 de la refonte UX du 23/08, seul état humain restant. Migration.
+9. **Passe « erreurs avalées »** sur les écritures Supabase (§ 5).
 
 ### En suspens, à ne pas relancer sans Nicolas
 
@@ -618,8 +709,9 @@ réponse actuelle, et l'étalonnage la rend viable.
 - Suppression d'une note par son auteur dans une fenêtre de cinq minutes (fautes de frappe).
 - Réglage du cadrage par poème en cinétique — aujourd'hui heuristique (fenêtre à 62 % vers le bas).
 - Rappel par mail le jour d'une publication programmée (préférable à un polling dans l'app).
-- **Couleurs des tags** dans Ressources : monochromes, parce que `CLAUDE.md` interdit d'inventer
-  des couleurs. Cinq teintes en variables sont faisables, mais c'est une levée de règle qui
-  appartient à Nicolas.
+- **Couleurs des tags** dans Ressources : monochromes. Une teinte par famille d'ambiance reste
+  faisable, mais c'est une levée de règle qui appartient à Nicolas — comme l'a été `--encre`
+  le 24/08. Le précédent existe donc, et il montre le vrai coût : la teinte a dû descendre sur
+  les quatre onglets. Une couleur nouvelle n'est jamais locale.
 - Ménage : `poems.notes`, `source`, `status` sont conservées en base sans écran. À supprimer un
   jour — ou à garder, mais **ne pas les réutiliser en croyant bien faire**.

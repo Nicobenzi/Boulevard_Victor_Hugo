@@ -1,9 +1,9 @@
-# Boulevard Victor Hugo — instructions projet
+# Novalis — instructions projet
 
 > ## ⚠ À LIRE EN PREMIER — deux pièges d'ouverture de session
 >
 > **1. Ce projet n'est PAS Coprovia.** Les plugins `coprovia-*` et l'adresse mail de Nicolas
-> pointent vers Coprovia — une plateforme de syndic. **Ici, rien à voir** : Boulevard Victor Hugo
+> pointent vers Coprovia — une plateforme de syndic. **Ici, rien à voir** : Novalis
 > est un studio de poèmes lus en vidéo verticale, sans copropriété, sans syndic, sans gestionnaire.
 > Le 23/08, une session a passé quatre échanges à parler d'AG et de tantièmes avant que Nicolas ne
 > la corrige. **Ne rien déduire de l'outillage installé.**
@@ -17,12 +17,12 @@
 > `corrige-et-livre` et `cadre-et-specifie` sont
 > utilisables mais écrits pour Coprovia — appliquer les conventions **de ce fichier**, pas les leurs
 > (ici : tout en client components, pas de Server Components, pas de design system Paprika,
-> repo `Nicobenzi/Boulevard_Victor_Hugo`).
+> repo `Nicobenzi/Novalis`).
 >
 > **2. Vérifier l'accès au dossier avant de conclure quoi que ce soit.** Ce fichier est injecté
 > automatiquement, mais le dossier n'est pas forcément monté pour les outils. Si `Glob`/`Read`
 > ne voient pas le repo, appeler `request_cowork_directory` sur
-> `/Users/nicolas/Documents/Claude/Projects/boulevard-victor-hugo`.
+> `/Users/nicolas/Documents/Claude/Projects/Novalis`.
 > **Ne jamais confondre** ce dossier avec la base de connaissances du projet Claude.ai
 > (`.project-cache/…`), qui est **vide** : elle ne contient ni `docs/` ni `files/`, et son absence
 > de contenu ne dit rien de l'état du projet. La vérité est dans le dossier, pas dans le cache.
@@ -73,8 +73,12 @@ Le mettre à jour après toute décision structurante.
     Elle vit dans `pipeline/render.py`. C'est le produit. Ne pas inventer d'autres couleurs.
   - **Palette de l'app — claire** (`app/globals.css`, depuis le 23/08). L'app est un outil ouvert
     en plein jour, pas une vitrine. **Un seul thème, pas de bascule sombre/clair.**
-    Toute couleur passe par une variable (`--bg --panel --ink --ink-dim --gold --line --danger`) :
-    aucun hexadécimal en dur dans les composants.
+    Toute couleur passe par une variable (`--bg --panel --ink --ink-dim --gold --gold-light
+    --encre --line --danger`) : aucun hexadécimal en dur dans les composants.
+    **Partage des rôles (24/08, ternaire)** : `--encre` = sélection, focus, survol, liens, jetons
+    actifs, contrôles · `--gold` = titres, libellés, dépôt, et l'avertissement qui n'est pas une
+    erreur · `--danger` = ce qui a échoué ou ce qui est sans retour. `--gold-light` ne porte
+    jamais de texte.
   - Contrainte de contraste : texte ≥ 4,5 et **bordures/limites ≥ 3,0** (c'est ce second seuil qui
     manquait — cf. memory.md).
 - Sous-titres vidéo = **texte canonique** de `poems.body`, jamais la transcription brute.
@@ -109,8 +113,8 @@ Le mettre à jour après toute décision structurante.
 ```bash
 npm run dev            # développement
 npm run build          # vérification avant push — SUR LE MAC, cf. ci-dessous
-gh workflow run render-videos --repo Nicobenzi/Boulevard_Victor_Hugo   # rendu manuel
-gh run watch <run-id>  --repo Nicobenzi/Boulevard_Victor_Hugo          # suivi (sans id : menu)
+gh workflow run render-videos --repo Nicobenzi/Novalis   # rendu manuel
+gh run watch <run-id>  --repo Nicobenzi/Novalis          # suivi (sans id : menu)
 ~/.venvs/bvh/bin/python pipeline/make_music.py ~/Desktop/musiques-bvh 120   # banque de nappes
 ```
 

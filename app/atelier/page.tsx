@@ -24,7 +24,7 @@ const RYTHME_HEURE = "18:00";
 const PLATEFORMES_AUTO = ["instagram", "tiktok", "youtube"];
 const LARGEUR_COLONNE = 288;
 const LARGEUR_REPLIEE = 46;
-const CLE_DISPOSITION = "bvh.atelier.disposition";
+const CLE_DISPOSITION = "novalis.atelier.disposition";
 
 const jourISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

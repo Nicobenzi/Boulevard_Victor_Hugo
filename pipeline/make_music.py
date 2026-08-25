@@ -1,5 +1,5 @@
 """
-Banque de nappes musicales — Boulevard Victor Hugo.
+Banque de nappes musicales — Novalis.
 
 100 % genere : aucun enregistrement, aucun sample, donc aucun risque de reclamation
 de droits (voir memory.md). Meme moteur que make_drone() dans render.py, mais decline

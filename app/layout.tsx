@@ -8,7 +8,7 @@ const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: ["400", "500"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Boulevard Victor Hugo — Studio",
+  title: "Novalis — Studio",
   description: "Poèmes, vidéos, calendrier de publication",
 };
 

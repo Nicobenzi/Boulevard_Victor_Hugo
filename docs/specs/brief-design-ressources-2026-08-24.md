@@ -1,7 +1,7 @@
 # Brief design — Refonte UX/UI de la section Ressources (2026-08-24)
 
 > Destinataire : Claude design. Statut : brief de cadrage, à instruire puis à spécifier.
-> Espace : app web `boulevard-victor-hugo`, route `/ressources` (Next.js, tout en client, Supabase).
+> Espace : app web `novalis`, route `/ressources` (Next.js, tout en client, Supabase).
 > Fichier concerné : `app/ressources/page.tsx` (~520 lignes, un seul composant client).
 > Contexte antérieur : `docs/specs/spec-refonte-ux-atelier-2026-08-23.md` (lot 2 « le vivier »).
 

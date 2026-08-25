@@ -1,5 +1,5 @@
 """
-Boulevard Victor Hugo - usine de rendu.
+Novalis - usine de rendu.
 Prend les render_jobs 'queued' dans Supabase, produit la video (voix + musique),
 l'upload dans le bucket 'videos' et met a jour le job.
 Env requis : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -341,7 +341,7 @@ def build_ass_cinetique(path, poem, verses, starts, onsets_pv, end_last, total):
                 s += p if p.startswith("\\N") else " " + p
             ev.append(f"Dialogue: 0,{ts(t0)},{ts(t1)},{style},,0,0,0,,{s}")
 
-    ev.append(f"Dialogue: 0,{ts(total-3.6)},{ts(total-0.4)},SigName,,0,0,0,,{{\\fad(600,600)\\pos(540,900)}}Boulevard Victor Hugo")
+    ev.append(f"Dialogue: 0,{ts(total-3.6)},{ts(total-0.4)},SigName,,0,0,0,,{{\\fad(600,600)\\pos(540,900)}}Novalis")
     ev.append(f"Dialogue: 0,{ts(total-3.3)},{ts(total-0.4)},SigSub,,0,0,0,,{{\\fad(600,600)\\pos(540,1000)}}chaque jour, un poème")
     open(path, "w").write(hdr + "\n".join(ev) + "\n")
 
@@ -370,7 +370,7 @@ def build_ass(path, poem, verses, starts, end_last, total, style):
     for i, (st, v) in enumerate(zip(starts, verses)):
         e = starts[i+1] if i+1 < len(starts) else end_last + 0.3
         ev.append(f"Dialogue: 0,{ts(st)},{ts(e)},Verse,,0,0,0,,{{\\fad(300,300)}}{cesure(v)}")
-    ev.append(f"Dialogue: 0,{ts(total-3.6)},{ts(total-0.4)},SigName,,0,0,0,,{{\\fad(600,600)\\pos(540,900)}}Boulevard Victor Hugo")
+    ev.append(f"Dialogue: 0,{ts(total-3.6)},{ts(total-0.4)},SigName,,0,0,0,,{{\\fad(600,600)\\pos(540,900)}}Novalis")
     ev.append(f"Dialogue: 0,{ts(total-3.3)},{ts(total-0.4)},SigSub,,0,0,0,,{{\\fad(600,600)\\pos(540,1000)}}chaque jour, un poème")
     open(path, "w").write(hdr + "\n".join(ev) + "\n")
 

@@ -26,7 +26,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="card w-full max-w-sm text-center">
-          <h1 className="font-serif2 text-3xl mb-1">Boulevard Victor Hugo</h1>
+          <h1 className="font-serif2 text-3xl mb-1">Novalis</h1>
           <p className="text-sm mb-6" style={{ color: "var(--ink-dim)" }}>Le studio</p>
           {state === "forbidden" ? (
             <p className="text-sm">Ce compte n'est pas autorisé. Demande à être ajouté à la liste des membres, puis reconnecte-toi.</p>

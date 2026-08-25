@@ -18,7 +18,7 @@ export default function Nav() {
   return (
     <header className="border-b" style={{ borderColor: "var(--line)" }}>
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6 flex-wrap">
-        <Link href="/" className="font-serif2 text-xl" style={{ color: "var(--gold)" }}>BVH</Link>
+        <Link href="/" className="font-serif2 text-xl" style={{ color: "var(--gold)" }}>Novalis</Link>
         <nav className="flex gap-4 flex-wrap text-sm">
           {tabs.map((t) => {
             const active = t.href === "/" ? path === "/" : path?.startsWith(t.href);
